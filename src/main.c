@@ -22,20 +22,27 @@ static void got_packet(u_char* args, const struct pcap_pkthdr* header, const u_c
 	printf("got packet: %d\n", curr_count);
 }
 
-int main(void)
+int main(int argc, char* argv[])
 {
 	char* dev = NULL;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle;
-	char filter_exp[] = "port 22";
+	char filter_exp[] = "udp and udp[8:4] = 0xDEADBEEF";
 	struct bpf_program fp;
 	bpf_u_int32 mask;
 	bpf_u_int32 net;
 
-	dev = pcap_lookupdev(errbuf);
-	if (dev == NULL) {
-		fprintf(stderr, "Could not find default device: %s\n", errbuf);
+	if (argc == 2) {
+		dev = argv[1];
+	} else if (argc > 2) {
+		fprintf(stderr, "error: wrong options\n");
 		exit(EXIT_FAILURE);
+	} else {
+		dev = pcap_lookupdev(errbuf);
+		if (dev == NULL) {
+			fprintf(stderr, "Could not find default device: %s\n", errbuf);
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
