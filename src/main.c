@@ -15,6 +15,7 @@
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
 #define ETHER_ADDR_LEN 6
+#define BUFFER_LEN 256
 
 #define IP_LEN 20
 #define UDP_LEN 8
@@ -132,8 +133,17 @@ static void got_packet(u_char* args, const struct pcap_pkthdr* header, const u_c
 	struct udp_hdr udp_hdr;
 	if (parse_udp_hdr(packet, header->caplen, &udp_hdr) == 0) {
 		printf("parsed udp hdr\n");
-		printf("source port: %d\n", udp_hdr.source);
+		printf("dst port: %d\n", udp_hdr.dest);
 	}
+
+	char buffer[BUFFER_LEN];
+	if (udp_hdr.len > BUFFER_LEN - 1) {
+		return;
+	}
+
+	memcpy(buffer, packet + ETHER_LEN + IP_LEN + UDP_LEN, udp_hdr.len);
+	buffer[udp_hdr.len] = '\0';
+	printf("buffer: %s\n", buffer + 4);
 }
 
 int main(int argc, char* argv[])
