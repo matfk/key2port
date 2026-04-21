@@ -16,24 +16,34 @@
 #define ETHER_LEN 14
 #define ETHER_ADDR_LEN 6
 
+#define IP_LEN 20
+#define UDP_LEN 8
+
 static atomic_int count = 0;
 
 struct ethernet_hdr {
 	u_char ether_dhost[ETHER_ADDR_LEN];
 	u_char ether_shost[ETHER_ADDR_LEN];
-	u_short ether_type;
+	uint16_t ether_type;
 } __attribute__((packed));
 
 struct ip_hdr {
 	u_char ip_vhl;
 	u_char ip_tos;
-	u_short ip_len;
-	u_short ip_id;
-	u_short ip_off;
+	uint16_t ip_len;
+	uint16_t ip_id;
+	uint16_t ip_off;
 	u_char ip_ttl;
 	u_char ip_p;
-	u_short ip_sum;
+	uint16_t ip_sum;
 	struct in_addr ip_src, ip_dst;
+} __attribute__((packed));
+
+struct udp_hdr {
+	uint16_t source;
+	uint16_t dest;
+	uint16_t len;
+	uint16_t check;
 } __attribute__((packed));
 
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
@@ -89,6 +99,23 @@ static int parse_ip_hdr(const u_char* packet, bpf_u_int32 caplen, struct ip_hdr*
 	return 0;
 }
 
+static int parse_udp_hdr(const u_char* packet, bpf_u_int32 caplen, struct udp_hdr* hdr)
+{
+	if (caplen < ETHER_LEN + IP_LEN + UDP_LEN)
+		return 1;
+
+	mempcpy(hdr, packet + ETHER_LEN + IP_LEN, UDP_LEN);
+	if (hdr == NULL)
+		return 1;
+
+	hdr->source = ntohs(hdr->source);
+	hdr->dest = ntohs(hdr->dest);
+	hdr->len = ntohs(hdr->len);
+	hdr->check = ntohs(hdr->check);
+
+	return 0;
+}
+
 static void got_packet(u_char* args, const struct pcap_pkthdr* header, const u_char* packet)
 {
 	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
@@ -101,6 +128,12 @@ static void got_packet(u_char* args, const struct pcap_pkthdr* header, const u_c
 	struct ip_hdr ip_hdr;
 	if (parse_ip_hdr(packet, header->caplen, &ip_hdr) == 0)
 		printf("parsed ip hdr\n");
+
+	struct udp_hdr udp_hdr;
+	if (parse_udp_hdr(packet, header->caplen, &udp_hdr) == 0) {
+		printf("parsed udp hdr\n");
+		printf("source port: %d\n", udp_hdr.source);
+	}
 }
 
 int main(int argc, char* argv[])
@@ -112,6 +145,7 @@ int main(int argc, char* argv[])
 	struct bpf_program fp;
 	bpf_u_int32 mask;
 	bpf_u_int32 net;
+	pcap_if_t* devices;
 
 	if (argc == 2) {
 		dev = argv[1];
@@ -119,10 +153,14 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "error: wrong options\n");
 		exit(EXIT_FAILURE);
 	} else {
-		dev = pcap_lookupdev(errbuf);
-		if (dev == NULL) {
-			fprintf(stderr, "Could not find default device: %s\n", errbuf);
+		if (pcap_findalldevs(&devices, errbuf) == -1) {
+			fprintf(stderr, "Could not any devices: %s\n", errbuf);
 			exit(EXIT_FAILURE);
+		}
+
+		pcap_if_t first_dev = devices[0];
+		if (first_dev.name != NULL) {
+			dev = first_dev.name;
 		}
 	}
 
@@ -163,6 +201,7 @@ int main(int argc, char* argv[])
 	pcap_loop(handle, 0, got_packet, NULL);
 	pcap_freecode(&fp);
 	pcap_close(handle);
+	pcap_freealldevs(devices);
 
 	return 0;
 }
