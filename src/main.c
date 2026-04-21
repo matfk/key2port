@@ -36,6 +36,7 @@ struct ip_hdr {
 	struct in_addr ip_src, ip_dst;
 } __attribute__((packed));
 
+#define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
 #define IP_V(ip) (((ip)->ip_vhl) >> 4)
 
 static int parse_ethernet_hdr(const u_char* packet, bpf_u_int32 caplen, struct ethernet_hdr* hdr)
@@ -66,6 +67,17 @@ static int parse_ip_hdr(const u_char* packet, bpf_u_int32 caplen, struct ip_hdr*
 
 	if (IP_V(hdr) != 4) {
 		printf("not ipv4: \n", IP_V(hdr));
+		return 1;
+	}
+
+	int size_ip = IP_HL(hdr) * 4;
+	if (size_ip < 20) {
+		printf("invalid ip header length: %d\n", size_ip);
+		return 1;
+	}
+
+	if (caplen < ETHER_LEN + size_ip) {
+		printf("caplen=%d, needed=%u\n", caplen, ETHER_LEN + size_ip);
 		return 1;
 	}
 
