@@ -4,20 +4,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <errno.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdatomic.h>
+#include <time.h>
 
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
 #define ETHER_ADDR_LEN 6
 #define BUFFER_LEN 256
-
-#define IP_LEN 20
 #define UDP_LEN 8
 
 static atomic_int count = 0;
@@ -47,6 +44,15 @@ struct udp_hdr {
 	uint16_t check;
 } __attribute__((packed));
 
+struct spa_hdr {
+	uint32_t magic;
+	uint16_t flags;
+	uint32_t client_id;
+	uint32_t timestamp;
+	u_char nonce[12];
+	uint32_t length;
+} __attribute__((packed));
+
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
 #define IP_V(ip) (((ip)->ip_vhl) >> 4)
 
@@ -54,60 +60,43 @@ static int parse_ethernet_hdr(const u_char* packet, bpf_u_int32 caplen, struct e
 {
 	if (caplen < ETHER_LEN)
 		return 1;
-
-	memcpy(hdr, packet, sizeof(struct ethernet_hdr));
-	if (hdr == NULL)
-		return 1;
-
+	memcpy(hdr, packet, sizeof(*hdr));
 	hdr->ether_type = ntohs(hdr->ether_type);
-
-	if (hdr->ether_type != 0x800)
+	if (hdr->ether_type != 0x0800)
 		return 1;
-
 	return 0;
 }
 
-static int parse_ip_hdr(const u_char* packet, bpf_u_int32 caplen, struct ip_hdr* hdr)
+static int parse_ip_hdr(const u_char* packet, bpf_u_int32 caplen, struct ip_hdr* hdr, int* out_ip_len)
 {
-	if (caplen < ETHER_LEN + sizeof(struct ip_hdr))
+	if (caplen < ETHER_LEN + (int)sizeof(*hdr))
 		return 1;
+	memcpy(hdr, packet + ETHER_LEN, sizeof(*hdr));
 
-	memcpy(hdr, packet + ETHER_LEN, sizeof(struct ip_hdr));
-	if (hdr == NULL)
+	if (IP_V(hdr) != 4)
 		return 1;
-
-	if (IP_V(hdr) != 4) {
-		printf("not ipv4: \n", IP_V(hdr));
-		return 1;
-	}
 
 	int size_ip = IP_HL(hdr) * 4;
-	if (size_ip < 20) {
-		printf("invalid ip header length: %d\n", size_ip);
+	if (size_ip < 20)
 		return 1;
-	}
-
-	if (caplen < ETHER_LEN + size_ip) {
-		printf("caplen=%d, needed=%u\n", caplen, ETHER_LEN + size_ip);
+	if (caplen < ETHER_LEN + size_ip)
 		return 1;
-	}
 
 	hdr->ip_len = ntohs(hdr->ip_len);
 	hdr->ip_id = ntohs(hdr->ip_id);
 	hdr->ip_off = ntohs(hdr->ip_off);
 	hdr->ip_sum = ntohs(hdr->ip_sum);
 
+	*out_ip_len = size_ip;
 	return 0;
 }
 
-static int parse_udp_hdr(const u_char* packet, bpf_u_int32 caplen, struct udp_hdr* hdr)
+static int parse_udp_hdr(const u_char* packet, bpf_u_int32 caplen, int ip_hdr_len, struct udp_hdr* hdr)
 {
-	if (caplen < ETHER_LEN + IP_LEN + UDP_LEN)
+	size_t udp_off = ETHER_LEN + ip_hdr_len;
+	if (caplen < udp_off + sizeof(*hdr))
 		return 1;
-
-	mempcpy(hdr, packet + ETHER_LEN + IP_LEN, UDP_LEN);
-	if (hdr == NULL)
-		return 1;
+	memcpy(hdr, packet + udp_off, sizeof(*hdr));
 
 	hdr->source = ntohs(hdr->source);
 	hdr->dest = ntohs(hdr->dest);
@@ -117,33 +106,71 @@ static int parse_udp_hdr(const u_char* packet, bpf_u_int32 caplen, struct udp_hd
 	return 0;
 }
 
+static int parse_spa_hdr(const u_char* packet, bpf_u_int32 caplen, int ip_hdr_len, struct spa_hdr* hdr)
+{
+	size_t spa_off = ETHER_LEN + ip_hdr_len + UDP_LEN;
+	if (caplen < spa_off + sizeof(*hdr))
+		return 1;
+	memcpy(hdr, packet + spa_off, sizeof(*hdr));
+
+	hdr->magic = ntohl(hdr->magic);
+	hdr->flags = ntohs(hdr->flags);
+	hdr->client_id = ntohl(hdr->client_id);
+	hdr->timestamp = ntohl(hdr->timestamp);
+	hdr->length = ntohl(hdr->length);
+
+	return 0;
+}
+
 static void got_packet(u_char* args, const struct pcap_pkthdr* header, const u_char* packet)
 {
 	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
 	printf("got packet: %d\n", curr_count);
 
-	struct ethernet_hdr eth_hdr;
-	if (parse_ethernet_hdr(packet, header->caplen, &eth_hdr) == 0)
-		printf("parsed eth hdr\n");
+	struct ethernet_hdr eth;
+	if (parse_ethernet_hdr(packet, header->caplen, &eth) != 0)
+		return;
 
-	struct ip_hdr ip_hdr;
-	if (parse_ip_hdr(packet, header->caplen, &ip_hdr) == 0)
-		printf("parsed ip hdr\n");
+	printf("parsed eth hdr\n");
 
-	struct udp_hdr udp_hdr;
-	if (parse_udp_hdr(packet, header->caplen, &udp_hdr) == 0) {
-		printf("parsed udp hdr\n");
-		printf("dst port: %d\n", udp_hdr.dest);
-	}
+	struct ip_hdr ip;
+	int ip_len;
+	if (parse_ip_hdr(packet, header->caplen, &ip, &ip_len) != 0)
+		return;
 
-	char buffer[BUFFER_LEN];
-	if (udp_hdr.len > BUFFER_LEN - 1) {
+	printf("parsed ip hdr, header len=%d\n", ip_len);
+
+	struct udp_hdr udp;
+	if (parse_udp_hdr(packet, header->caplen, ip_len, &udp) != 0)
+		return;
+
+	printf("parsed udp hdr, dst port=%u\n", udp.dest);
+
+	struct spa_hdr spa;
+	if (parse_spa_hdr(packet, header->caplen, ip_len, &spa) != 0)
+		return;
+
+	printf("parsed spa header, magic=0x%08x flags=0x%04x client_id=%u timestamp=%u length=%u\n", spa.magic, spa.flags, spa.client_id,
+	       spa.timestamp, spa.length);
+
+	size_t spa_off = ETHER_LEN + ip_len + UDP_LEN;
+	size_t payload_off = spa_off + sizeof(struct spa_hdr);
+
+	if (spa.length >= BUFFER_LEN) {
+		fprintf(stderr, "spa payload too large: %u\n", spa.length);
 		return;
 	}
 
-	memcpy(buffer, packet + ETHER_LEN + IP_LEN + UDP_LEN, udp_hdr.len);
-	buffer[udp_hdr.len] = '\0';
-	printf("buffer: %s\n", buffer + 4);
+	if (header->caplen < payload_off + spa.length) {
+		fprintf(stderr, "truncated: caplen=%u need=%zu\n", header->caplen, payload_off + spa.length);
+		return;
+	}
+
+	char payload[BUFFER_LEN];
+	if (spa.length > 0)
+		memcpy(payload, packet + payload_off, spa.length);
+	payload[spa.length] = '\0';
+	printf("payload: %s\n", payload);
 }
 
 int main(int argc, char* argv[])
@@ -151,31 +178,27 @@ int main(int argc, char* argv[])
 	char* dev = NULL;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle;
-	char filter_exp[] = "udp and udp[8:4] = 0xDEADBEEF";
+	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
 	struct bpf_program fp;
 	bpf_u_int32 mask;
 	bpf_u_int32 net;
-	pcap_if_t* devices;
+	pcap_if_t* devices = NULL;
 
 	if (argc == 2) {
 		dev = argv[1];
-	} else if (argc > 2) {
-		fprintf(stderr, "error: wrong options\n");
-		exit(EXIT_FAILURE);
 	} else {
 		if (pcap_findalldevs(&devices, errbuf) == -1) {
-			fprintf(stderr, "Could not any devices: %s\n", errbuf);
+			fprintf(stderr, "pcap_findalldevs: %s\n", errbuf);
 			exit(EXIT_FAILURE);
 		}
-
-		pcap_if_t first_dev = devices[0];
-		if (first_dev.name != NULL) {
-			dev = first_dev.name;
+		if (devices == NULL) {
+			fprintf(stderr, "no devices found\n");
+			exit(EXIT_FAILURE);
 		}
+		dev = devices->name;
 	}
 
 	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
-		fprintf(stderr, "Could not get netmask for device %s: %s\n", dev, errbuf);
 		net = 0;
 		mask = 0;
 	}
@@ -185,7 +208,7 @@ int main(int argc, char* argv[])
 
 	handle = pcap_open_live(dev, SNAP_LEN, 1, 1000, errbuf);
 	if (handle == NULL) {
-		fprintf(stderr, "Could not open device %s: %s\n", dev, errbuf);
+		fprintf(stderr, "pcap_open_live: %s\n", errbuf);
 		exit(EXIT_FAILURE);
 	}
 
@@ -196,22 +219,22 @@ int main(int argc, char* argv[])
 	}
 
 	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-		fprintf(stderr, "Could not parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
+		fprintf(stderr, "pcap_compile failed: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
 		exit(EXIT_FAILURE);
 	}
 
 	if (pcap_setfilter(handle, &fp) == -1) {
-		fprintf(stderr, "Could not install filter %s: %s\n", filter_exp, pcap_geterr(handle));
+		fprintf(stderr, "pcap_setfilter failed: %s\n", pcap_geterr(handle));
 		pcap_freecode(&fp);
 		pcap_close(handle);
 		exit(EXIT_FAILURE);
 	}
 
 	pcap_loop(handle, 0, got_packet, NULL);
+
 	pcap_freecode(&fp);
 	pcap_close(handle);
 	pcap_freealldevs(devices);
-
 	return 0;
 }
