@@ -1,0 +1,24 @@
+#ifndef SPA_H
+#define SPA_H
+
+#include <stdint.h>
+#include <sodium.h>
+
+#define SPA_MAGIC 0x53504100
+#define SPA_VERSION 1
+#define SPA_NONCE_LEN 12
+#define SPA_SIG_LEN crypto_sign_BYTES
+
+struct spa_hdr {
+	uint32_t magic;
+	uint8_t version;
+	uint8_t flags;
+	uint32_t client_id;
+	uint32_t timestamp;
+	uint8_t nonce[SPA_NONCE_LEN];
+	uint32_t payload_len;
+} __attribute__((packed));
+
+int spa_build_packet(const struct spa_hdr* hdr, const uint8_t* payload, const uint8_t* sign_key, uint8_t** out, size_t* out_len);
+
+#endif

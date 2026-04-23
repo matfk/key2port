@@ -3,43 +3,41 @@
 #include <stdlib.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include "src/spa.h"
+#include <sodium.h>
 
 int main(int argc, char* argv[])
 {
-	if (argc != 2) {
-		printf("usage: [payload]\n");
+	uint8_t pk[crypto_sign_PUBLICKEYBYTES];
+	uint8_t sk[crypto_sign_SECRETKEYBYTES];
+	crypto_sign_keypair(pk, sk);
+
+	struct spa_hdr spa_hdr;
+	spa_hdr.magic = SPA_MAGIC;
+	spa_hdr.version = SPA_VERSION;
+	spa_hdr.flags = 0;
+	spa_hdr.client_id = 2026;
+	spa_hdr.timestamp = (uint32_t)time(NULL);
+	randombytes_buf(spa_hdr.nonce, SPA_NONCE_LEN);
+	char* msg = "hello from spa";
+	spa_hdr.payload_len = strlen(msg);
+
+	uint8_t* packet = NULL;
+	size_t packet_len = 0;
+	if (spa_build_packet(&spa_hdr, msg, sk, &packet, &packet_len) != 0) {
+		fprintf(stderr, "spa build failed\n");
 		return 1;
 	}
 
-	FILE* file = fopen("spa.bin", "wb");
-	if (file == NULL) {
-		perror("failed to open spa.bin");
+	FILE* file = fopen("pkt.bin", "wb");
+	if (!file) {
+		perror("fopen");
 		return 1;
 	}
 
-	uint32_t magic = htonl(0x53504100);
-	uint16_t flags = htons(0x0000);
-	uint32_t client_id = htonl(12345);
-	uint32_t timestamp = htonl((uint32_t)time(NULL));
-	u_char nonce[12] = { 0 };
-
-	uint32_t length = (uint32_t)strlen(argv[1]);
-	uint32_t netlength = htonl(length);
-
-	FILE* rand = fopen("/dev/urandom", "rb");
-	if (rand != NULL) {
-		fread(nonce, sizeof(u_char), 12, rand);
-		fclose(rand);
-	}
-
-	fwrite(&magic, sizeof(magic), 1, file);
-	fwrite(&flags, sizeof(flags), 1, file);
-	fwrite(&client_id, sizeof(client_id), 1, file);
-	fwrite(&timestamp, sizeof(timestamp), 1, file);
-	fwrite(nonce, 1, sizeof(nonce), file);
-	fwrite(&netlength, sizeof(netlength), 1, file);
-	fwrite(argv[1], sizeof(u_char), length, file);
+	fwrite(packet, packet_len, 1, file);
 
 	fclose(file);
+	free(packet);
 	return 0;
 }

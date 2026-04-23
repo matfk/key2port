@@ -10,6 +10,8 @@
 #include <arpa/inet.h>
 #include <stdatomic.h>
 #include <time.h>
+#include <sodium.h>
+#include "spa.h"
 
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
@@ -42,15 +44,6 @@ struct udp_hdr {
 	uint16_t dest;
 	uint16_t len;
 	uint16_t check;
-} __attribute__((packed));
-
-struct spa_hdr {
-	uint32_t magic;
-	uint16_t flags;
-	uint32_t client_id;
-	uint32_t timestamp;
-	u_char nonce[12];
-	uint32_t length;
 } __attribute__((packed));
 
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
@@ -117,7 +110,7 @@ static int parse_spa_hdr(const u_char* packet, bpf_u_int32 caplen, int ip_hdr_le
 	hdr->flags = ntohs(hdr->flags);
 	hdr->client_id = ntohl(hdr->client_id);
 	hdr->timestamp = ntohl(hdr->timestamp);
-	hdr->length = ntohl(hdr->length);
+	hdr->payload_len = ntohl(hdr->payload_len);
 
 	return 0;
 }
@@ -150,26 +143,26 @@ static void got_packet(u_char* args, const struct pcap_pkthdr* header, const u_c
 	if (parse_spa_hdr(packet, header->caplen, ip_len, &spa) != 0)
 		return;
 
-	printf("parsed spa header, magic=0x%08x flags=0x%04x client_id=%u timestamp=%u length=%u\n", spa.magic, spa.flags, spa.client_id,
-	       spa.timestamp, spa.length);
+	printf("parsed spa header, magic=0x%08x flags=0x%04x client_id=%u timestamp=%u payload-len=%u\n", spa.magic, spa.flags, spa.client_id,
+	       spa.timestamp, spa.payload_len);
 
 	size_t spa_off = ETHER_LEN + ip_len + UDP_LEN;
 	size_t payload_off = spa_off + sizeof(struct spa_hdr);
 
-	if (spa.length >= BUFFER_LEN) {
-		fprintf(stderr, "spa payload too large: %u\n", spa.length);
+	if (spa.payload_len >= BUFFER_LEN) {
+		fprintf(stderr, "spa payload too large: %u\n", spa.payload_len);
 		return;
 	}
 
-	if (header->caplen < payload_off + spa.length) {
-		fprintf(stderr, "truncated: caplen=%u need=%zu\n", header->caplen, payload_off + spa.length);
+	if (header->caplen < payload_off + spa.payload_len) {
+		fprintf(stderr, "truncated: caplen=%u need=%zu\n", header->caplen, payload_off + spa.payload_len);
 		return;
 	}
 
 	char payload[BUFFER_LEN];
-	if (spa.length > 0)
-		memcpy(payload, packet + payload_off, spa.length);
-	payload[spa.length] = '\0';
+	if (spa.payload_len > 0)
+		memcpy(payload, packet + payload_off, spa.payload_len);
+	payload[spa.payload_len] = '\0';
 	printf("payload: %s\n", payload);
 }
 

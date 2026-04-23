@@ -9,7 +9,7 @@ CFLAGS += -O2
 endif
 
 EXTRA_INC ?=
-EXTRA_LIBS ?= -lpcap
+EXTRA_LIBS ?= -lpcap -lsodium
 
 SRC_DIR := src
 OBJDIR := build
