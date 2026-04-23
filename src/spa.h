@@ -7,6 +7,7 @@
 #define SPA_MAGIC 0x53504100
 #define SPA_VERSION 1
 #define SPA_NONCE_LEN 12
+#define SPA_HDR_LEN 30
 #define SPA_SIG_LEN crypto_sign_BYTES
 
 struct spa_hdr {
