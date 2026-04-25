@@ -37,33 +37,11 @@ int spa_parse_hdr(const uint8_t* in, size_t len, struct spa_hdr* hdr)
 	if (len < SPA_HDR_LEN)
 		return -1;
 
-	uint8_t* p = in;
-
-	uint32_t magic;
-	memcpy(&magic, p, 4);
-	hdr->magic = ntohl(magic);
-	p += 4;
-
-	hdr->version = *p++;
-	hdr->flags = *p++;
-
-	uint32_t client_id;
-	memcpy(&client_id, p, 4);
-	hdr->client_id = ntohl(client_id);
-	p += 4;
-
-	uint32_t timestamp;
-	memcpy(&timestamp, p, 4);
-	hdr->timestamp = ntohl(timestamp);
-	p += 4;
-
-	memcpy(hdr->nonce, p, SPA_NONCE_LEN);
-	p += SPA_NONCE_LEN;
-
-	uint32_t payload_len;
-	memcpy(&payload_len, p, 4);
-	hdr->payload_len = ntohl(payload_len);
-	p += 4;
+	memcpy(hdr, in, SPA_HDR_LEN);
+	hdr->magic = ntohl(hdr->magic);
+	hdr->client_id = ntohl(hdr->client_id);
+	hdr->timestamp = ntohl(hdr->timestamp);
+	hdr->payload_len = ntohl(hdr->payload_len);
 
 	return 0;
 }
