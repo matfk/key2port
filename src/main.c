@@ -50,7 +50,7 @@ struct udp_hdr {
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
 #define IP_V(ip) (((ip)->ip_vhl) >> 4)
 
-static int ethernet_hdr_parse(const u_char* packet, size_t len, struct ethernet_hdr* hdr)
+static int ethernet_parse_hdr(const u_char* packet, size_t len, struct ethernet_hdr* hdr)
 {
 	if (len < ETHER_LEN)
 		return 1;
@@ -64,7 +64,7 @@ static int ethernet_hdr_parse(const u_char* packet, size_t len, struct ethernet_
 	return 0;
 }
 
-static int ip_hdr_parse(const u_char* packet, size_t len, struct ip_hdr* hdr, int* out_ip_len)
+static int ip_parse_hdr(const u_char* packet, size_t len, struct ip_hdr* hdr, int* out_ip_len)
 {
 	if (len < IP_LEN)
 		return 1;
@@ -89,7 +89,7 @@ static int ip_hdr_parse(const u_char* packet, size_t len, struct ip_hdr* hdr, in
 	return 0;
 }
 
-static int udp_hdr_parse(const u_char* packet, size_t len, struct udp_hdr* hdr)
+static int udp_parse_hdr(const u_char* packet, size_t len, struct udp_hdr* hdr)
 {
 	if (len < UDP_LEN)
 		return 1;
@@ -115,17 +115,17 @@ static void got_packet(uint8_t* args, const struct pcap_pkthdr* header, const ui
 	struct udp_hdr udp;
 	struct spa_hdr spa;
 
-	if (ethernet_hdr_parse(p, header->caplen, &eth) != 0)
+	if (ethernet_parse_hdr(p, header->caplen, &eth) != 0)
 		return;
 	p += ETHER_LEN;
 	printf("parsed eth hdr\n");
 
-	if (ip_hdr_parse(p, header->caplen - ETHER_LEN, &ip, &ip_len) != 0)
+	if (ip_parse_hdr(p, header->caplen - ETHER_LEN, &ip, &ip_len) != 0)
 		return;
 	p += ip_len;
 	printf("parsed ip hdr, header len=%d\n", ip_len);
 
-	if (udp_hdr_parse(p, header->caplen - ETHER_LEN - ip_len, &udp) != 0)
+	if (udp_parse_hdr(p, header->caplen - ETHER_LEN - ip_len, &udp) != 0)
 		return;
 
 	p += UDP_LEN;
