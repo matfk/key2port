@@ -79,6 +79,9 @@ int spa_build_packet(const struct spa_hdr* hdr, const uint8_t* payload, const ui
 		return -1;
 
 	uint8_t* p = buffer;
+	memcpy(p, hdr_buffer, hdr_size);
+	p += hdr_size;
+
 	if (hdr->payload_len) {
 		memcpy(p, payload, hdr->payload_len);
 		p += hdr->payload_len;
@@ -92,5 +95,33 @@ int spa_build_packet(const struct spa_hdr* hdr, const uint8_t* payload, const ui
 
 	*out = buffer;
 	*out_len = total;
+	return 0;
+}
+
+int spa_verify_packet(const uint8_t* in, size_t len, const uint8_t* pk)
+{
+	if (len < SPA_HDR_LEN + SPA_SIG_LEN)
+		return -1;
+
+	struct spa_hdr hdr;
+	if (spa_parse_hdr(in, len, &hdr) != 0)
+		return -1;
+
+	if (hdr.magic != SPA_MAGIC)
+		return -1;
+
+	if (hdr.version != SPA_VERSION)
+		return -1;
+
+	size_t total_len = SPA_HDR_LEN + hdr.payload_len + SPA_SIG_LEN;
+	if (len < total_len)
+		return -1;
+
+	uint8_t* sig = in + SPA_HDR_LEN + hdr.payload_len;
+	if (crypto_sign_verify_detached(sig, in, SPA_HDR_LEN + hdr.payload_len, pk) != 0)
+		return -1;
+
+	// TODO: enforce time, nonce and flags policies
+
 	return 0;
 }

@@ -21,5 +21,7 @@ struct spa_hdr {
 } __attribute__((packed));
 
 int spa_build_packet(const struct spa_hdr* hdr, const uint8_t* payload, const uint8_t* sign_key, uint8_t** out, size_t* out_len);
+int spa_parse_hdr(const uint8_t* in, size_t len, struct spa_hdr* hdr);
+int spa_verify_packet(const uint8_t* in, size_t len, const uint8_t* pk);
 
 #endif

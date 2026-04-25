@@ -16,6 +16,7 @@
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
 #define ETHER_ADDR_LEN 6
+#define IP_LEN 20
 #define BUFFER_LEN 256
 #define UDP_LEN 8
 
@@ -49,30 +50,34 @@ struct udp_hdr {
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
 #define IP_V(ip) (((ip)->ip_vhl) >> 4)
 
-static int parse_ethernet_hdr(const u_char* packet, bpf_u_int32 caplen, struct ethernet_hdr* hdr)
+static int ethernet_hdr_parse(const u_char* packet, size_t len, struct ethernet_hdr* hdr)
 {
-	if (caplen < ETHER_LEN)
+	if (len < ETHER_LEN)
 		return 1;
+
 	memcpy(hdr, packet, sizeof(*hdr));
 	hdr->ether_type = ntohs(hdr->ether_type);
+
 	if (hdr->ether_type != 0x0800)
 		return 1;
+
 	return 0;
 }
 
-static int parse_ip_hdr(const u_char* packet, bpf_u_int32 caplen, struct ip_hdr* hdr, int* out_ip_len)
+static int ip_hdr_parse(const u_char* packet, size_t len, struct ip_hdr* hdr, int* out_ip_len)
 {
-	if (caplen < ETHER_LEN + (int)sizeof(*hdr))
+	if (len < IP_LEN)
 		return 1;
-	memcpy(hdr, packet + ETHER_LEN, sizeof(*hdr));
 
+	memcpy(hdr, packet, IP_LEN);
 	if (IP_V(hdr) != 4)
 		return 1;
 
 	int size_ip = IP_HL(hdr) * 4;
 	if (size_ip < 20)
 		return 1;
-	if (caplen < ETHER_LEN + size_ip)
+
+	if (len < size_ip)
 		return 1;
 
 	hdr->ip_len = ntohs(hdr->ip_len);
@@ -84,13 +89,12 @@ static int parse_ip_hdr(const u_char* packet, bpf_u_int32 caplen, struct ip_hdr*
 	return 0;
 }
 
-static int parse_udp_hdr(const u_char* packet, bpf_u_int32 caplen, int ip_hdr_len, struct udp_hdr* hdr)
+static int udp_hdr_parse(const u_char* packet, size_t len, struct udp_hdr* hdr)
 {
-	size_t udp_off = ETHER_LEN + ip_hdr_len;
-	if (caplen < udp_off + sizeof(*hdr))
+	if (len < UDP_LEN)
 		return 1;
-	memcpy(hdr, packet + udp_off, sizeof(*hdr));
 
+	memcpy(hdr, packet, UDP_LEN);
 	hdr->source = ntohs(hdr->source);
 	hdr->dest = ntohs(hdr->dest);
 	hdr->len = ntohs(hdr->len);
@@ -99,52 +103,40 @@ static int parse_udp_hdr(const u_char* packet, bpf_u_int32 caplen, int ip_hdr_le
 	return 0;
 }
 
-static int parse_spa_hdr(const u_char* packet, bpf_u_int32 caplen, int ip_hdr_len, struct spa_hdr* hdr)
-{
-	size_t spa_off = ETHER_LEN + ip_hdr_len + UDP_LEN;
-	if (caplen < spa_off + sizeof(*hdr))
-		return 1;
-	memcpy(hdr, packet + spa_off, sizeof(*hdr));
-
-	hdr->magic = ntohl(hdr->magic);
-	hdr->flags = ntohs(hdr->flags);
-	hdr->client_id = ntohl(hdr->client_id);
-	hdr->timestamp = ntohl(hdr->timestamp);
-	hdr->payload_len = ntohl(hdr->payload_len);
-
-	return 0;
-}
-
-static void got_packet(u_char* args, const struct pcap_pkthdr* header, const u_char* packet)
+static void got_packet(uint8_t* args, const struct pcap_pkthdr* header, const uint8_t* packet)
 {
 	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
 	printf("got packet: %d\n", curr_count);
 
+	uint8_t* p = packet;
 	struct ethernet_hdr eth;
-	if (parse_ethernet_hdr(packet, header->caplen, &eth) != 0)
-		return;
-
-	printf("parsed eth hdr\n");
-
 	struct ip_hdr ip;
 	int ip_len;
-	if (parse_ip_hdr(packet, header->caplen, &ip, &ip_len) != 0)
-		return;
+	struct udp_hdr udp;
+	struct spa_hdr spa;
 
+	if (ethernet_hdr_parse(p, header->caplen, &eth) != 0)
+		return;
+	p += ETHER_LEN;
+	printf("parsed eth hdr\n");
+
+	if (ip_hdr_parse(p, header->caplen - ETHER_LEN, &ip, &ip_len) != 0)
+		return;
+	p += ip_len;
 	printf("parsed ip hdr, header len=%d\n", ip_len);
 
-	struct udp_hdr udp;
-	if (parse_udp_hdr(packet, header->caplen, ip_len, &udp) != 0)
+	if (udp_hdr_parse(p, header->caplen - ETHER_LEN - ip_len, &udp) != 0)
 		return;
 
+	p += UDP_LEN;
 	printf("parsed udp hdr, dst port=%u\n", udp.dest);
 
-	struct spa_hdr spa;
-	if (parse_spa_hdr(packet, header->caplen, ip_len, &spa) != 0)
+	if (spa_parse_hdr(p, header->caplen - ETHER_LEN - ip_len - UDP_LEN, &spa) != 0)
 		return;
 
-	printf("parsed spa header, magic=0x%08x flags=0x%04x client_id=%u timestamp=%u payload-len=%u\n", spa.magic, spa.flags, spa.client_id,
-	       spa.timestamp, spa.payload_len);
+	p += SPA_HDR_LEN;
+	printf("parsed spa header, magic=0x%08x version=%d flags=0x%02x client_id=%u timestamp=%u payload-len=%u\n", spa.magic, spa.version,
+	       spa.flags, spa.client_id, spa.timestamp, spa.payload_len);
 
 	size_t spa_off = ETHER_LEN + ip_len + UDP_LEN;
 	size_t payload_off = spa_off + sizeof(struct spa_hdr);
