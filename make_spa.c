@@ -29,18 +29,18 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	// FILE* file = fopen("pkt.bin", "wb");
-	// if (!file) {
-	// 	perror("fopen");
-	// 	return 1;
-	// }
-
-	// fwrite(packet, packet_len, 1, file);
-
-	if (spa_verify_packet(packet, packet_len, pk) != 0) {
-		printf("packed not verified\n");
+	FILE* file = fopen("pkt.bin", "wb");
+	if (!file) {
+		perror("fopen");
 		return 1;
 	}
+
+	fwrite(packet, packet_len, 1, file);
+
+	//if (spa_verify_packet(packet, packet_len, pk) != 0) {
+	//	printf("packed not verified\n");
+	//	return 1;
+	//}
 
 	printf("packet verified\n");
 

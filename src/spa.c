@@ -11,8 +11,13 @@ size_t spa_serialize_hdr(const struct spa_hdr* hdr, uint8_t* out)
 	memcpy(p, &magic, 4);
 	p += 4;
 
-	*p++ = hdr->version;
-	*p++ = hdr->flags;
+	uint16_t version = htons(hdr->version);
+	memcpy(p, &version, 2);
+	p += 2;
+
+	uint16_t flags = htons(hdr->flags);
+	memcpy(p, &flags, 2);
+	p += 2;
 
 	uint32_t client_id = htonl(hdr->client_id);
 	memcpy(p, &client_id, 4);
@@ -39,6 +44,8 @@ int spa_parse_hdr(const uint8_t* in, size_t len, struct spa_hdr* hdr)
 
 	memcpy(hdr, in, SPA_HDR_LEN);
 	hdr->magic = ntohl(hdr->magic);
+	hdr->version = ntohs(hdr->version);
+	hdr->flags = ntohs(hdr->flags);
 	hdr->client_id = ntohl(hdr->client_id);
 	hdr->timestamp = ntohl(hdr->timestamp);
 	hdr->payload_len = ntohl(hdr->payload_len);

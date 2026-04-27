@@ -74,7 +74,7 @@ static int ip_parse_hdr(const u_char* packet, size_t len, struct ip_hdr* hdr, in
 		return 1;
 
 	int size_ip = IP_HL(hdr) * 4;
-	if (size_ip < 20)
+	if (size_ip < IP_LEN)
 		return 1;
 
 	if (len < size_ip)
@@ -103,59 +103,58 @@ static int udp_parse_hdr(const u_char* packet, size_t len, struct udp_hdr* hdr)
 	return 0;
 }
 
+static int parse_hdrs(const uint8_t* packet, size_t packet_len)
+{
+	uint8_t* p = packet;
+	int ip_len;
+
+	struct ethernet_hdr eth;
+	struct ip_hdr ip;
+	struct udp_hdr udp;
+
+	if (ethernet_parse_hdr(p, packet_len, &eth) != 0)
+		return -1;
+
+	p += ETHER_LEN;
+	packet_len - ETHER_LEN;
+
+	if (ip_parse_hdr(p, packet_len, &ip, &ip_len) != 0)
+		return -1;
+
+	p += ip_len;
+	packet_len - ip_len;
+
+	if (udp_parse_hdr(p, packet_len, &udp) != 0)
+		return -1;
+
+	p += UDP_LEN;
+
+	return (int)(p - packet);
+}
+
 static void got_packet(uint8_t* args, const struct pcap_pkthdr* header, const uint8_t* packet)
 {
 	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
-	printf("got packet: %d\n", curr_count);
+	printf("Packet Count: %d\n", curr_count);
 
 	uint8_t* p = packet;
-	struct ethernet_hdr eth;
-	struct ip_hdr ip;
-	int ip_len;
-	struct udp_hdr udp;
-	struct spa_hdr spa;
-
-	if (ethernet_parse_hdr(p, header->caplen, &eth) != 0)
-		return;
-	p += ETHER_LEN;
-	printf("parsed eth hdr\n");
-
-	if (ip_parse_hdr(p, header->caplen - ETHER_LEN, &ip, &ip_len) != 0)
-		return;
-	p += ip_len;
-	printf("parsed ip hdr, header len=%d\n", ip_len);
-
-	if (udp_parse_hdr(p, header->caplen - ETHER_LEN - ip_len, &udp) != 0)
-		return;
-
-	p += UDP_LEN;
-	printf("parsed udp hdr, dst port=%u\n", udp.dest);
-
-	if (spa_parse_hdr(p, header->caplen - ETHER_LEN - ip_len - UDP_LEN, &spa) != 0)
-		return;
-
-	p += SPA_HDR_LEN;
-	printf("parsed spa header, magic=0x%08x version=%d flags=0x%02x client_id=%u timestamp=%u payload-len=%u\n", spa.magic, spa.version,
-	       spa.flags, spa.client_id, spa.timestamp, spa.payload_len);
-
-	size_t spa_off = ETHER_LEN + ip_len + UDP_LEN;
-	size_t payload_off = spa_off + sizeof(struct spa_hdr);
-
-	if (spa.payload_len >= BUFFER_LEN) {
-		fprintf(stderr, "spa payload too large: %u\n", spa.payload_len);
+	int parsed_len = parse_hdrs(p, header->caplen);
+	if (parsed_len == -1) {
 		return;
 	}
 
-	if (header->caplen < payload_off + spa.payload_len) {
-		fprintf(stderr, "truncated: caplen=%u need=%zu\n", header->caplen, payload_off + spa.payload_len);
+	int len = header->caplen - parsed_len;
+	printf("Header Length: %d\n", parsed_len);
+	printf("SPA length: %d\n", len);
+	printf("Total Length: %d\n", header->caplen);
+
+	uint8_t pk[crypto_sign_PUBLICKEYBYTES];
+	// TODO: read Public key
+
+	if (spa_verify_packet(p, len, pk) != 0) {
+		printf("Packet Not verified\n");
 		return;
 	}
-
-	char payload[BUFFER_LEN];
-	if (spa.payload_len > 0)
-		memcpy(payload, packet + payload_off, spa.payload_len);
-	payload[spa.payload_len] = '\0';
-	printf("payload: %s\n", payload);
 }
 
 int main(int argc, char* argv[])

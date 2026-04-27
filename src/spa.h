@@ -6,14 +6,15 @@
 
 #define SPA_MAGIC 0x53504100
 #define SPA_VERSION 1
-#define SPA_NONCE_LEN 12
-#define SPA_HDR_LEN 30
+#define SPA_NONCE_LEN 16
+#define SPA_HDR_LEN 36
 #define SPA_SIG_LEN crypto_sign_BYTES
+#define SPA_PAYLOAD_MAX 512
 
 struct spa_hdr {
 	uint32_t magic;
-	uint8_t version;
-	uint8_t flags;
+	uint16_t version;
+	uint16_t flags;
 	uint32_t client_id;
 	uint32_t timestamp;
 	uint8_t nonce[SPA_NONCE_LEN];
