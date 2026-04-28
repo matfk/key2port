@@ -163,7 +163,7 @@ static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* pac
 	}
 
 	u8* spa = packet + parsed_len;
-	if (spa_verify_packet(spa, len - 64, pk) != 0) {
+	if (spa_verify_packet(spa, len, pk) != 0) {
 		printf("Packet Not verified\n");
 		return;
 	}
