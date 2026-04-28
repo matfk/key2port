@@ -2,13 +2,14 @@
 #include <string.h>
 #include <sodium.h>
 #include "types.h"
+#include "string.h"
 
-static uint32_t be32(const u8* b)
+static u32 be32(const u8* b)
 {
-	return (uint32_t)b[0] << 24 | (uint32_t)b[1] << 16 | (uint32_t)b[2] << 8 | b[3];
+	return (u32)b[0] << 24 | (u32)b[1] << 16 | (u32)b[2] << 8 | b[3];
 }
 
-static u8* b64_decode_alloc(const char* b64, size_t* outlen)
+u8* b64_decode_alloc(const char* b64, size_t* outlen)
 {
 	size_t inlen = strlen(b64);
 	size_t max_out = (inlen * 3) / 4 + 8;
@@ -45,18 +46,19 @@ int parse_ssh_ed25519_publine(const char* line, u8 out_pub[32])
 		free(blob);
 		return -1;
 	}
-	uint32_t alglen = be32(blob);
+	u32 alglen = be32(blob);
 	if (4 + alglen + 4 + 32 > bloblen) {
 		free(blob);
 		return -1;
 	}
+
 	if (alglen != strlen("ssh-ed25519") || memcmp(blob + 4, "ssh-ed25519", alglen) != 0) {
 		free(blob);
 		return -1;
 	}
 
-	uint32_t off = 4 + alglen;
-	uint32_t pklen = be32(blob + off);
+	u32 off = 4 + alglen;
+	u32 pklen = be32(blob + off);
 	if (pklen != 32) {
 		free(blob);
 		return -1;
@@ -117,13 +119,13 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	uint32_t len = be32(bin + off);
+	u32 len = be32(bin + off);
 	off += 4;
 	if (off + len > binlen) {
 		free(bin);
 		return -1;
 	}
-	char* ciphername = strndup((char*)(bin + off), len);
+	char* ciphername = (char*)strndup((char*)(bin + off), len);
 	off += len;
 
 	// read kdfname
@@ -139,7 +141,7 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	char* kdfname = strndup((char*)(bin + off), len);
+	char* kdfname = (char*)strndup((char*)(bin + off), len);
 	off += len;
 
 	// read kdfoptions
@@ -166,7 +168,7 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	uint32_t nkeys = be32(bin + off);
+	u32 nkeys = be32(bin + off);
 	off += 4;
 	if (nkeys < 1) {
 		free(ciphername);
@@ -176,14 +178,14 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 	}
 
 	// read pubkeyblob
-	for (uint32_t i = 0; i < nkeys; i++) {
+	for (u32 i = 0; i < nkeys; i++) {
 		if (off + 4 > binlen) {
 			free(ciphername);
 			free(kdfname);
 			free(bin);
 			return -1;
 		}
-		uint32_t plen = be32(bin + off);
+		u32 plen = be32(bin + off);
 		off += 4;
 		if (off + plen > binlen) {
 			free(ciphername);
@@ -201,7 +203,7 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	uint32_t privlen = be32(bin + off);
+	u32 privlen = be32(bin + off);
 	off += 4;
 	if (off + privlen > binlen) {
 		free(ciphername);
@@ -226,9 +228,9 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	uint32_t check1 = be32(bin + p);
+	u32 check1 = be32(bin + p);
 	p += 4;
-	uint32_t check2 = be32(bin + p);
+	u32 check2 = be32(bin + p);
 	p += 4;
 
 	// parse first key entry
@@ -238,7 +240,7 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	uint32_t alglen = be32(bin + p);
+	u32 alglen = be32(bin + p);
 	p += 4;
 	if (p + alglen > binlen) {
 		free(ciphername);
@@ -261,7 +263,7 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	uint32_t publen = be32(bin + p);
+	u32 publen = be32(bin + p);
 	p += 4;
 	if (p + publen > binlen) {
 		free(ciphername);
@@ -278,7 +280,7 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	uint32_t privkeylen = be32(bin + p);
+	u32 privkeylen = be32(bin + p);
 	p += 4;
 	if (p + privkeylen > binlen) {
 		free(ciphername);
@@ -289,7 +291,7 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 
 	size_t subp = p;
 	if (privkeylen >= 4) {
-		uint32_t inner_len = be32(bin + subp);
+		u32 inner_len = be32(bin + subp);
 		subp += 4;
 		if (subp + inner_len <= p + privkeylen && inner_len >= 32) {
 			// inner contains seed || pub
@@ -318,94 +320,39 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 	return -1;
 }
 
-char* read_to_string(const char* path, size_t* outlen)
-{
-	FILE* file = fopen(path, "rb");
-	if (file == NULL) {
-		perror("fopen");
-		return NULL;
-	}
-
-	if (fseek(file, 0, SEEK_END) != 0) {
-		perror("fseek");
-		return NULL;
-	}
-
-	long int file_size = ftell(file);
-	if (file_size > 4096) {
-		fprintf(stderr, "File too big\n");
-		return NULL;
-	}
-
-	if (fseek(file, 0, SEEK_SET) != 0) {
-		perror("fseek");
-		return NULL;
-	}
-
-	char* pem = malloc(file_size + 1);
-	if (pem == NULL) {
-		perror("malloc");
-		return NULL;
-	}
-
-	size_t read_total = 0;
-	while (read_total < file_size) {
-		size_t read = fread(pem + read_total, 1, file_size - read_total, file);
-		if (read == 0) {
-			if (feof(file))
-				break;
-			if (ferror(file)) {
-				perror("fread");
-				free(pem);
-				fclose(file);
-				return NULL;
-			}
-		}
-
-		read_total += read;
-	}
-
-	fclose(file);
-	pem[file_size] = '\0';
-	if (outlen != NULL)
-		*outlen = file_size;
-
-	return pem;
-}
-
-int main(void)
-{
-	char* pem = read_to_string("sk", NULL);
-	if (pem == NULL) {
-		return 1;
-	}
-
-	char* publine = read_to_string("pk", NULL);
-	if (publine == NULL) {
-		return 1;
-	}
-
-	u8 pub[32];
-	if (parse_ssh_ed25519_publine(publine, pub) == 0) {
-		printf("Parsed public key (first 4 bytes): %02x %02x %02x %02x\n", pub[0], pub[1], pub[2], pub[3]);
-	} else {
-		printf("Failed to parse public line\n");
-	}
-
-	u8 seed[32];
-	int r = parse_openssh_priv_pem(pem, seed);
-	if (r == 0) {
-		u8 pk[32], sk[64];
-		crypto_sign_ed25519_seed_keypair(pk, sk, seed);
-		printf("Derived public key (first 4 bytes): %02x %02x %02x %02x\n", pk[0], pk[1], pk[2], pk[3]);
-		sodium_memzero(sk, sizeof(sk));
-		sodium_memzero(seed, sizeof(seed));
-	} else if (r == -2) {
-		printf("Encrypted private key - not supported by this example\n");
-	} else {
-		printf("Failed to parse private key\n");
-	}
-
-	free(pem);
-	return 0;
-}
+//int main(void)
+//{
+//	char* pem = read_to_string("sk", NULL);
+//	if (pem == NULL) {
+//		return 1;
+//	}
+//
+//	char* publine = read_to_string("pk", NULL);
+//	if (publine == NULL) {
+//		return 1;
+//	}
+//
+//	u8 pub[32];
+//	if (parse_ssh_ed25519_publine(publine, pub) == 0) {
+//		printf("Parsed public key (first 4 bytes): %02x %02x %02x %02x\n", pub[0], pub[1], pub[2], pub[3]);
+//	} else {
+//		printf("Failed to parse public line\n");
+//	}
+//
+//	u8 seed[32];
+//	int r = parse_openssh_priv_pem(pem, seed);
+//	if (r == 0) {
+//		u8 pk[32], sk[64];
+//		crypto_sign_ed25519_seed_keypair(pk, sk, seed);
+//		printf("Derived public key (first 4 bytes): %02x %02x %02x %02x\n", pk[0], pk[1], pk[2], pk[3]);
+//		sodium_memzero(sk, sizeof(sk));
+//		sodium_memzero(seed, sizeof(seed));
+//	} else if (r == -2) {
+//		printf("Encrypted private key - not supported by this example\n");
+//	} else {
+//		printf("Failed to parse private key\n");
+//	}
+//
+//	free(pem);
+//	return 0;
+//}

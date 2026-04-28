@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <sodium.h>
+#include "types.h"
 
 #define SPA_MAGIC 0x53504100
 #define SPA_VERSION 1
@@ -12,17 +13,17 @@
 #define SPA_PAYLOAD_MAX 512
 
 struct spa_hdr {
-	uint32_t magic;
-	uint16_t version;
-	uint16_t flags;
-	uint32_t client_id;
-	uint32_t timestamp;
-	uint8_t nonce[SPA_NONCE_LEN];
-	uint32_t payload_len;
+	u32 magic;
+	u16 version;
+	u16 flags;
+	u32 client_id;
+	u32 timestamp;
+	u8 nonce[SPA_NONCE_LEN];
+	u32 payload_len;
 } __attribute__((packed));
 
-int spa_build_packet(const struct spa_hdr* hdr, const uint8_t* payload, const uint8_t* sign_key, uint8_t** out, size_t* out_len);
-int spa_parse_hdr(const uint8_t* in, size_t len, struct spa_hdr* hdr);
-int spa_verify_packet(const uint8_t* in, size_t len, const uint8_t* pk);
+int spa_build_packet(const struct spa_hdr* hdr, const u8* payload, const u8* sign_key, u8** out, size_t* out_len);
+int spa_parse_hdr(const u8* in, size_t len, struct spa_hdr* hdr);
+int spa_verify_packet(const u8* in, size_t len, const u8* pk);
 
 #endif

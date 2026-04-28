@@ -12,6 +12,9 @@
 #include <time.h>
 #include <sodium.h>
 #include "spa.h"
+#include "key.h"
+#include "types.h"
+#include "string.h"
 
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
@@ -25,26 +28,26 @@ static atomic_int count = 0;
 struct ethernet_hdr {
 	u_char ether_dhost[ETHER_ADDR_LEN];
 	u_char ether_shost[ETHER_ADDR_LEN];
-	uint16_t ether_type;
+	u16 ether_type;
 } __attribute__((packed));
 
 struct ip_hdr {
 	u_char ip_vhl;
 	u_char ip_tos;
-	uint16_t ip_len;
-	uint16_t ip_id;
-	uint16_t ip_off;
+	u16 ip_len;
+	u16 ip_id;
+	u16 ip_off;
 	u_char ip_ttl;
 	u_char ip_p;
-	uint16_t ip_sum;
+	u16 ip_sum;
 	struct in_addr ip_src, ip_dst;
 } __attribute__((packed));
 
 struct udp_hdr {
-	uint16_t source;
-	uint16_t dest;
-	uint16_t len;
-	uint16_t check;
+	u16 source;
+	u16 dest;
+	u16 len;
+	u16 check;
 } __attribute__((packed));
 
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
@@ -103,9 +106,9 @@ static int udp_parse_hdr(const u_char* packet, size_t len, struct udp_hdr* hdr)
 	return 0;
 }
 
-static int parse_hdrs(const uint8_t* packet, size_t packet_len)
+static int parse_hdrs(const u8* packet, size_t packet_len)
 {
-	uint8_t* p = packet;
+	u8* p = packet;
 	int ip_len;
 
 	struct ethernet_hdr eth;
@@ -132,13 +135,12 @@ static int parse_hdrs(const uint8_t* packet, size_t packet_len)
 	return (int)(p - packet);
 }
 
-static void got_packet(uint8_t* args, const struct pcap_pkthdr* header, const uint8_t* packet)
+static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
 {
 	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
 	printf("Packet Count: %d\n", curr_count);
 
-	uint8_t* p = packet;
-	int parsed_len = parse_hdrs(p, header->caplen);
+	int parsed_len = parse_hdrs(packet, header->caplen);
 	if (parsed_len == -1) {
 		return;
 	}
@@ -148,13 +150,25 @@ static void got_packet(uint8_t* args, const struct pcap_pkthdr* header, const ui
 	printf("SPA length: %d\n", len);
 	printf("Total Length: %d\n", header->caplen);
 
-	uint8_t pk[crypto_sign_PUBLICKEYBYTES];
-	// TODO: read Public key
+	u8 pk[crypto_sign_PUBLICKEYBYTES];
+	char* publine = read_to_string("key.pub", NULL);
+	if (publine == NULL)
+		return;
 
-	if (spa_verify_packet(p, len, pk) != 0) {
+	printf("publine: %s\n", publine);
+
+	if (parse_ssh_ed25519_publine(publine, pk) != 0) {
+		printf("Could not parse publine\n");
+		return;
+	}
+
+	u8* spa = packet + parsed_len;
+	if (spa_verify_packet(spa, len - 64, pk) != 0) {
 		printf("Packet Not verified\n");
 		return;
 	}
+
+	printf("Packed Verified\n");
 }
 
 int main(int argc, char* argv[])
