@@ -1,6 +1,6 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sodium.h>
 
 char* read_to_string(const char* path, size_t* outlen)
 {
