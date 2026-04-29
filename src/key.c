@@ -12,6 +12,7 @@ static u32 be32(const u8* b)
 u8* b64_decode_alloc(const char* b64, size_t* outlen)
 {
 	size_t inlen = strlen(b64);
+
 	size_t max_out = (inlen * 3) / 4 + 8;
 	u8* out = malloc(max_out);
 	if (!out)
@@ -213,6 +214,7 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 	}
 
 	// only support unencrypted
+	// TODO: Support encrypted keys
 	if (strcmp(kdfname, "none") != 0 || strcmp(ciphername, "none") != 0) {
 		free(ciphername);
 		free(kdfname);
@@ -319,40 +321,3 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 	free(bin);
 	return -1;
 }
-
-//int main(void)
-//{
-//	char* pem = read_to_string("sk", NULL);
-//	if (pem == NULL) {
-//		return 1;
-//	}
-//
-//	char* publine = read_to_string("pk", NULL);
-//	if (publine == NULL) {
-//		return 1;
-//	}
-//
-//	u8 pub[32];
-//	if (parse_ssh_ed25519_publine(publine, pub) == 0) {
-//		printf("Parsed public key (first 4 bytes): %02x %02x %02x %02x\n", pub[0], pub[1], pub[2], pub[3]);
-//	} else {
-//		printf("Failed to parse public line\n");
-//	}
-//
-//	u8 seed[32];
-//	int r = parse_openssh_priv_pem(pem, seed);
-//	if (r == 0) {
-//		u8 pk[32], sk[64];
-//		crypto_sign_ed25519_seed_keypair(pk, sk, seed);
-//		printf("Derived public key (first 4 bytes): %02x %02x %02x %02x\n", pk[0], pk[1], pk[2], pk[3]);
-//		sodium_memzero(sk, sizeof(sk));
-//		sodium_memzero(seed, sizeof(seed));
-//	} else if (r == -2) {
-//		printf("Encrypted private key - not supported by this example\n");
-//	} else {
-//		printf("Failed to parse private key\n");
-//	}
-//
-//	free(pem);
-//	return 0;
-//}
