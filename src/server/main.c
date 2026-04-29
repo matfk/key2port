@@ -11,10 +11,10 @@
 #include <stdatomic.h>
 #include <time.h>
 #include <sodium.h>
-#include "spa.h"
-#include "key.h"
-#include "types.h"
-#include "string.h"
+#include <core/string.h>
+#include <core/types.h>
+#include <libspa/spa.h>
+#include <libspa/key.h>
 
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
@@ -163,12 +163,16 @@ static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* pac
 	}
 
 	u8* spa = packet + parsed_len;
-	if (spa_verify_packet(spa, len, pk) != 0) {
+	struct spa_hdr hdr;
+	if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
 		printf("Packet Not verified\n");
 		return;
 	}
 
+	char payload[SPA_PAYLOAD_MAX + 1];
+	strncpy(payload, spa + SPA_HDR_LEN, hdr.payload_len);
 	printf("Packed Verified\n");
+	printf("Payload: %s\n", payload);
 }
 
 int main(int argc, char* argv[])

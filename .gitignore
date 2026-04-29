@@ -2,3 +2,5 @@ key
 key.pub
 tests
 build
+compile_commands.json
+.cache

@@ -1,8 +1,9 @@
+#define _DEFAULT_SOURCE
 #include <stdlib.h>
 #include <string.h>
 #include <sodium.h>
-#include "types.h"
-#include "string.h"
+#include <core/types.h>
+#include <core/string.h>
 
 static u32 be32(const u8* b)
 {

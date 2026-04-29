@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 #include <sodium.h>
-#include "types.h"
+#include <core/types.h>
+#include "spa.h"
 
 #define SPA_MAGIC 0x53504100
 #define SPA_VERSION 1
@@ -24,6 +25,6 @@ struct spa_hdr {
 
 int spa_build_packet(const struct spa_hdr* hdr, const u8* payload, const u8* sign_key, u8** out, size_t* out_len);
 int spa_parse_hdr(const u8* in, size_t len, struct spa_hdr* hdr);
-int spa_verify_packet(const u8* in, size_t len, const u8* pk);
+int spa_verify_packet(const u8* in, size_t len, const u8* pk, struct spa_hdr* hdr);
 
 #endif
