@@ -2,59 +2,29 @@
 #include <stdlib.h>
 #include <string.h>
 
-char* read_to_string(const char* path, size_t* outlen)
+int read_to_string(char* str, size_t length, FILE* file)
 {
-	FILE* file = fopen(path, "rb");
-	if (file == NULL) {
-		perror("fopen");
-		return NULL;
-	}
-
-	if (fseek(file, 0, SEEK_END) != 0) {
-		perror("fseek");
-		return NULL;
-	}
-
-	long int file_size = ftell(file);
-	if (file_size > 4096) {
-		fprintf(stderr, "File too big\n");
-		return NULL;
-	}
-
-	if (fseek(file, 0, SEEK_SET) != 0) {
-		perror("fseek");
-		return NULL;
-	}
-
-	char* pem = malloc(file_size + 1);
-	if (pem == NULL) {
-		perror("malloc");
-		return NULL;
+	if (length < 2) {
+		return -1;
 	}
 
 	size_t read_total = 0;
-	while (read_total < file_size) {
-		size_t read = fread(pem + read_total, 1, file_size - read_total, file);
+	while (read_total < length) {
+		size_t read = fread(str + read_total, 1, length - read_total, file);
 		if (read == 0) {
 			if (feof(file))
 				break;
 			if (ferror(file)) {
 				perror("fread");
-				free(pem);
-				fclose(file);
-				return NULL;
+				return -1;
 			}
 		}
 
 		read_total += read;
 	}
 
-	fclose(file);
-	pem[file_size] = '\0';
-	if (outlen != NULL)
-		*outlen = file_size;
-
-	return pem;
+	str[length - 1] = '\0';
+	return 0;
 }
 
 size_t strnlen(const char* s, size_t maxlen)

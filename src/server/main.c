@@ -150,13 +150,15 @@ static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* pac
 	printf("SPA length: %d\n", len);
 	printf("Total Length: %d\n", header->caplen);
 
-	u8 pk[crypto_sign_PUBLICKEYBYTES];
-	char* publine = read_to_string("key.pub", NULL);
-	if (publine == NULL)
+	FILE* keyfile = fopen("key.pub", "rb");
+	if (keyfile == NULL)
 		return;
 
-	printf("publine: %s\n", publine);
+	char publine[512];
+	if (read_to_string(publine, sizeof(publine), keyfile) != 0)
+		return;
 
+	u8 pk[crypto_sign_PUBLICKEYBYTES];
 	if (parse_ssh_ed25519_publine(publine, pk) != 0) {
 		printf("Could not parse publine\n");
 		return;
