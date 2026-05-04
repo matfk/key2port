@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
 	spa_hdr.version = SPA_VERSION;
 	spa_hdr.flags = 0;
 	spa_hdr.client_id = 2026;
-	spa_hdr.timestamp = (uint32_t)time(NULL);
+	spa_hdr.timestamp = (u32)time(NULL);
 	randombytes_buf(spa_hdr.nonce, SPA_NONCE_LEN);
 	char* msg = argv[1];
 	spa_hdr.payload_len = strlen(msg);

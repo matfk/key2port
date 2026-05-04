@@ -3,41 +3,42 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <core/types.h>
 
-size_t spa_serialize_hdr(const struct spa_hdr* hdr, uint8_t* out)
+size_t spa_serialize_hdr(const struct spa_hdr* hdr, u8* out)
 {
-	uint8_t* p = out;
-	uint32_t magic = htonl(hdr->magic);
+	u8* p = out;
+	u32 magic = htonl(hdr->magic);
 	memcpy(p, &magic, 4);
 	p += 4;
 
-	uint16_t version = htons(hdr->version);
+	u16 version = htons(hdr->version);
 	memcpy(p, &version, 2);
 	p += 2;
 
-	uint16_t flags = htons(hdr->flags);
+	u16 flags = htons(hdr->flags);
 	memcpy(p, &flags, 2);
 	p += 2;
 
-	uint32_t client_id = htonl(hdr->client_id);
+	u32 client_id = htonl(hdr->client_id);
 	memcpy(p, &client_id, 4);
 	p += 4;
 
-	uint32_t timestamp = htonl(hdr->timestamp);
+	u32 timestamp = htonl(hdr->timestamp);
 	memcpy(p, &timestamp, 4);
 	p += 4;
 
 	memcpy(p, hdr->nonce, SPA_NONCE_LEN);
 	p += SPA_NONCE_LEN;
 
-	uint32_t payload_len = htonl(hdr->payload_len);
+	u32 payload_len = htonl(hdr->payload_len);
 	memcpy(p, &payload_len, 4);
 	p += 4;
 
 	return (size_t)(p - out);
 }
 
-int spa_parse_hdr(const uint8_t* in, size_t len, struct spa_hdr* hdr)
+int spa_parse_hdr(const u8* in, size_t len, struct spa_hdr* hdr)
 {
 	if (len < SPA_HDR_LEN)
 		return -1;
@@ -53,17 +54,17 @@ int spa_parse_hdr(const uint8_t* in, size_t len, struct spa_hdr* hdr)
 	return 0;
 }
 
-int spa_build_packet(const struct spa_hdr* hdr, const uint8_t* payload, const uint8_t* sign_key, uint8_t** out, size_t* out_len)
+int spa_build_packet(const struct spa_hdr* hdr, const u8* payload, const u8* sign_key, u8** out, size_t* out_len)
 {
-	uint8_t hdr_buffer[SPA_HDR_LEN];
+	u8 hdr_buffer[SPA_HDR_LEN];
 	size_t hdr_size = spa_serialize_hdr(hdr, hdr_buffer);
 
 	size_t total = hdr_size + hdr->payload_len + SPA_SIG_LEN;
-	uint8_t* buffer = malloc(total);
+	u8* buffer = malloc(total);
 	if (buffer == NULL)
 		return -1;
 
-	uint8_t* p = buffer;
+	u8* p = buffer;
 	memcpy(p, hdr_buffer, hdr_size);
 	p += hdr_size;
 
@@ -72,7 +73,7 @@ int spa_build_packet(const struct spa_hdr* hdr, const uint8_t* payload, const ui
 		p += hdr->payload_len;
 	}
 
-	uint8_t* sig = p;
+	u8* sig = p;
 	if (crypto_sign_detached(sig, NULL, buffer, hdr_size + hdr->payload_len, sign_key) != 0) {
 		free(buffer);
 		return -1;
@@ -83,7 +84,7 @@ int spa_build_packet(const struct spa_hdr* hdr, const uint8_t* payload, const ui
 	return 0;
 }
 
-int spa_verify_packet(const uint8_t* in, size_t len, const uint8_t* pk, struct spa_hdr* hdr)
+int spa_verify_packet(const u8* in, size_t len, const u8* pk, struct spa_hdr* hdr)
 {
 	if (len < SPA_HDR_LEN + SPA_SIG_LEN)
 		return -1;
@@ -104,7 +105,7 @@ int spa_verify_packet(const uint8_t* in, size_t len, const uint8_t* pk, struct s
 	if (len < total_len)
 		return -1;
 
-	uint8_t* sig = in + SPA_HDR_LEN + hdr->payload_len;
+	u8* sig = in + SPA_HDR_LEN + hdr->payload_len;
 	if (crypto_sign_verify_detached(sig, in, SPA_HDR_LEN + hdr->payload_len, pk) != 0)
 		return -1;
 
