@@ -175,6 +175,7 @@ static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* pac
 	strncpy(payload, spa + SPA_HDR_LEN, hdr.payload_len);
 	printf("Packed Verified\n");
 	printf("Payload: %s\n", payload);
+	bzero(payload, SPA_PAYLOAD_MAX + 1);
 }
 
 int main(int argc, char* argv[])

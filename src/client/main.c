@@ -22,8 +22,7 @@ void print_usage()
 
 u16 random_port()
 {
-	u16 port = rand() % (MAX_PORT - MIN_PORT + 1) + MIN_PORT;
-	return port;
+	return (u16)(rand() % (MAX_PORT - MIN_PORT + 1) + MIN_PORT);
 }
 
 int main(int argc, char* argv[])
