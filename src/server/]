@@ -26,11 +26,6 @@
 
 static atomic_int count = 0;
 
-struct loop_args {
-	struct nft_ctx* nft;
-	// TODO: Database handle;
-};
-
 struct ethernet_hdr {
 	u_char ether_dhost[ETHER_ADDR_LEN];
 	u_char ether_shost[ETHER_ADDR_LEN];
@@ -112,24 +107,28 @@ static int udp_parse_hdr(const u_char* packet, size_t len, struct udp_hdr* hdr)
 	return 0;
 }
 
-static int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* eth, struct ip_hdr* ip, struct udp_hdr* udp)
+static int parse_hdrs(const u8* packet, size_t packet_len)
 {
 	u8* p = packet;
 	int ip_len;
 
-	if (ethernet_parse_hdr(p, packet_len, eth) != 0)
+	struct ethernet_hdr eth;
+	struct ip_hdr ip;
+	struct udp_hdr udp;
+
+	if (ethernet_parse_hdr(p, packet_len, &eth) != 0)
 		return -1;
 
 	p += ETHER_LEN;
 	packet_len - ETHER_LEN;
 
-	if (ip_parse_hdr(p, packet_len, ip, &ip_len) != 0)
+	if (ip_parse_hdr(p, packet_len, &ip, &ip_len) != 0)
 		return -1;
 
 	p += ip_len;
 	packet_len - ip_len;
 
-	if (udp_parse_hdr(p, packet_len, udp) != 0)
+	if (udp_parse_hdr(p, packet_len, &udp) != 0)
 		return -1;
 
 	p += UDP_LEN;
@@ -137,22 +136,12 @@ static int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* 
 	return (int)(p - packet);
 }
 
-static void add_rule(const char* payload, struct nft_ctx* nft)
-{
-}
-
 static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
 {
-	struct loop_args* loop_args = (struct loop_args*)args;
-
 	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
 	printf("Packet Count: %d\n", curr_count);
 
-	struct ethernet_hdr eth_hdr;
-	struct ip_hdr ip_hdr;
-	struct udp_hdr udp_hdr;
-
-	int parsed_len = parse_hdrs(packet, header->caplen, &eth_hdr, &ip_hdr, &udp_hdr);
+	int parsed_len = parse_hdrs(packet, header->caplen);
 	if (parsed_len == -1) {
 		return;
 	}
@@ -182,8 +171,12 @@ static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* pac
 
 	char payload[SPA_PAYLOAD_MAX + 1];
 	strncpy(payload, spa + SPA_HDR_LEN, hdr.payload_len);
-	add_rule(payload, loop_args->nft);
+	printf("Payload: %s\n", payload);
 	bzero(payload, SPA_PAYLOAD_MAX + 1);
+}
+
+void add_rule(const char* payload)
+{
 }
 
 int main(int argc, char* argv[])
@@ -244,18 +237,16 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	struct nft_ctx* nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	struct nft_ctx* nft;
 	if (nft == NULL) {
 		fprintf(stderr, "Failed to initialize nftables context\n");
 		exit(EXIT_FAILURE);
 	}
 
-	struct loop_args args = { nft };
-	pcap_loop(handle, 0, got_packet, (u8*)&args);
+	pcap_loop(handle, 0, got_packet, NULL);
 
 	pcap_freecode(&fp);
 	pcap_close(handle);
 	pcap_freealldevs(devices);
-	nft_ctx_free(nft);
 	return 0;
 }
