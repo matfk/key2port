@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
+#include <core/types.h>
 
 int read_to_string(char* str, size_t length, FILE* file)
 {

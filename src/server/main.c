@@ -137,8 +137,29 @@ static int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* 
 	return (int)(p - packet);
 }
 
-static void add_rule(const char* payload, struct nft_ctx* nft)
+static int add_rule(char* ip_addr, u16 port, u32 ttl, struct nft_ctx* nft)
 {
+	char commands[1024];
+	snprintf(commands, sizeof(commands),
+		 "add table inet occultus\n"
+		 "add set inet occultus temp_allowed { type ipv4_addr . inet_service; flags timeout; }\n"
+		 "add chain inet occultus prerouting { type filter hook prerouting priority -100; }\n"
+
+		 // flush chain to prevent duplicate rules
+		 "flush chain inet occultus prerouting\n"
+
+		 // mark with 0x99
+		 "add rule inet occultus prerouting ip saddr . tcp dport @temp_allowed meta mark set 0x99\n"
+
+		 "add element inet occultus temp_allowed { %s . %d timeout %ds }\n",
+		 ip_addr, port, ttl);
+
+	if (nft_run_cmd_from_buffer(nft, commands) < 0) {
+		fprintf(stderr, "Failed to apply nftables rules.\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
@@ -151,6 +172,7 @@ static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* pac
 	struct ethernet_hdr eth_hdr;
 	struct ip_hdr ip_hdr;
 	struct udp_hdr udp_hdr;
+	struct spa_hdr hdr;
 
 	int parsed_len = parse_hdrs(packet, header->caplen, &eth_hdr, &ip_hdr, &udp_hdr);
 	if (parsed_len == -1) {
@@ -174,16 +196,25 @@ static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* pac
 	}
 
 	u8* spa = packet + parsed_len;
-	struct spa_hdr hdr;
 	if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
 		printf("Packet Not verified\n");
 		return;
 	}
 
-	char payload[SPA_PAYLOAD_MAX + 1];
-	strncpy(payload, spa + SPA_HDR_LEN, hdr.payload_len);
-	add_rule(payload, loop_args->nft);
-	bzero(payload, SPA_PAYLOAD_MAX + 1);
+	struct spa_payload payload;
+	if ((len - SPA_HDR_LEN) < sizeof(payload))
+		return;
+
+	memcpy(&payload, spa + SPA_HDR_LEN, sizeof(payload));
+
+	char ip_addr[INET_ADDRSTRLEN];
+	if (inet_ntop(AF_INET, &ip_hdr.ip_src, ip_addr, INET_ADDRSTRLEN) == NULL)
+		return;
+
+	printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
+
+	if (add_rule(ip_addr, payload.port, payload.ttl, loop_args->nft) != 0)
+		return;
 }
 
 int main(int argc, char* argv[])

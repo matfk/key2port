@@ -64,12 +64,14 @@ int main(int argc, char* argv[])
 	spa_hdr.client_id = 2026;
 	spa_hdr.timestamp = (u32)time(NULL);
 	randombytes_buf(spa_hdr.nonce, SPA_NONCE_LEN);
-	char* msg = argv[1];
-	spa_hdr.payload_len = strlen(msg);
+
+	u16 port = atoi(argv[1]);
+	struct spa_payload payload = { 120, port };
+	spa_hdr.payload_len = sizeof(payload);
 
 	u8* packet = NULL;
 	size_t packet_len = 0;
-	if (spa_build_packet(&spa_hdr, msg, sk, &packet, &packet_len) != 0) {
+	if (spa_build_packet(&spa_hdr, (const u8*)&payload, sk, &packet, &packet_len) != 0) {
 		fprintf(stderr, "spa build failed\n");
 		return 1;
 	}

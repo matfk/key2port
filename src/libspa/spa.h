@@ -23,6 +23,11 @@ struct spa_hdr {
 	u32 payload_len;
 } __attribute__((packed));
 
+struct spa_payload {
+	u32 ttl;
+	u16 port;
+} __attribute__((packed));
+
 int spa_build_packet(const struct spa_hdr* hdr, const u8* payload, const u8* sign_key, u8** out, size_t* out_len);
 int spa_parse_hdr(const u8* in, size_t len, struct spa_hdr* hdr);
 int spa_verify_packet(const u8* in, size_t len, const u8* pk, struct spa_hdr* hdr);
