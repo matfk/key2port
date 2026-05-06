@@ -9,7 +9,7 @@ CFLAGS += -O2 -DNDEBUG
 endif
 
 EXTRA_INC ?=
-EXTRA_LIBS ?= -lsodium -lpcap -lnftables
+EXTRA_LIBS ?= -lsodium -lpcap -lnftables -lsqlite3
 
 SRC_DIR := src
 CORE_DIR := $(SRC_DIR)/core

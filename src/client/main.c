@@ -11,13 +11,34 @@
 #include <libspa/key.h>
 #include <libspa/spa.h>
 #include <sodium.h>
+#include <getopt.h>
 
 #define MIN_PORT 1025
 #define MAX_PORT 65535
 
+// clang-format off
+struct option long_options[] = {
+	{"help", no_argument, 0, 'h'},
+	{"version", no_argument, 0, 'v'},
+	{"p", required_argument, 0, 'p'},
+	{"ttl", required_argument, 0, 't'},
+	{0, 0, 0, 0}
+};
+// clang-format on
+
 void print_usage()
 {
-	printf("usage: <payload>\n");
+	printf("Usage: <target> [OPTIONS]\n");
+	printf("Options:\n");
+	printf("  -h, --help         Show this help message and exit\n");
+	printf("  -v, --version      Show version info and exit\n");
+	printf("  -p, --port         Port\n");
+	printf("  --ttl              Time To Live\n");
+}
+
+void print_version()
+{
+	printf("Occultus v0.1\n");
 }
 
 u16 random_port()
@@ -25,13 +46,8 @@ u16 random_port()
 	return (u16)(rand() % (MAX_PORT - MIN_PORT + 1) + MIN_PORT);
 }
 
-int main(int argc, char* argv[])
+int send_packet()
 {
-	if (argc < 2) {
-		print_usage();
-		return 0;
-	}
-
 	FILE* sk_file = fopen("key", "rb");
 	if (sk_file == NULL) {
 		perror("fopen");
@@ -65,7 +81,7 @@ int main(int argc, char* argv[])
 	spa_hdr.timestamp = (u32)time(NULL);
 	randombytes_buf(spa_hdr.nonce, SPA_NONCE_LEN);
 
-	u16 port = atoi(argv[1]);
+	u16 port = 4444;
 	struct spa_payload payload = { 120, port };
 	spa_hdr.payload_len = sizeof(payload);
 
@@ -103,5 +119,41 @@ int main(int argc, char* argv[])
 
 	free(packet);
 	close(sockfd);
+}
+
+int main(int argc, char* argv[])
+{
+	if (argc < 2) {
+		print_usage();
+		return 0;
+	}
+
+	u16 port = 4444;
+	u32 ttl = 120;
+	int opt;
+
+	while ((opt = getopt_long(argc, argv, "hvp:t:", long_options, NULL)) != -1) {
+		switch (opt) {
+		case 'h':
+			print_usage();
+			return 0;
+		case 'v':
+			print_version();
+			return 0;
+		case 'p':
+			port = atoi(optarg);
+			break;
+		case 't':
+			ttl = atoi(optarg);
+			break;
+		}
+	}
+
+	char* target = argv[optind];
+	if (target == NULL) {
+		print_usage();
+		return 1;
+	}
+
 	return 0;
 }
