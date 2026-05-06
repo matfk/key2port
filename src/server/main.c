@@ -15,7 +15,7 @@
 #include <core/types.h>
 #include <libspa/spa.h>
 #include <libspa/key.h>
-#include <nftables/libnftables.h>
+#include "nft.h"
 
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
@@ -25,11 +25,6 @@
 #define UDP_LEN 8
 
 static atomic_int count = 0;
-
-struct loop_args {
-	struct nft_ctx* nft;
-	// TODO: Database handle;
-};
 
 struct ethernet_hdr {
 	u_char ether_dhost[ETHER_ADDR_LEN];
@@ -137,35 +132,8 @@ static int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* 
 	return (int)(p - packet);
 }
 
-static int add_rule(char* ip_addr, u16 port, u32 ttl, struct nft_ctx* nft)
-{
-	char commands[1024];
-	snprintf(commands, sizeof(commands),
-		 "add table inet occultus\n"
-		 "add set inet occultus temp_allowed { type ipv4_addr . inet_service; flags timeout; }\n"
-		 "add chain inet occultus prerouting { type filter hook prerouting priority -100; }\n"
-
-		 // flush chain to prevent duplicate rules
-		 "flush chain inet occultus prerouting\n"
-
-		 // mark with 0x99
-		 "add rule inet occultus prerouting ip saddr . tcp dport @temp_allowed meta mark set 0x99\n"
-
-		 "add element inet occultus temp_allowed { %s . %d timeout %ds }\n",
-		 ip_addr, port, ttl);
-
-	if (nft_run_cmd_from_buffer(nft, commands) < 0) {
-		fprintf(stderr, "Failed to apply nftables rules.\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
 {
-	struct loop_args* loop_args = (struct loop_args*)args;
-
 	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
 	printf("Packet Count: %d\n", curr_count);
 
@@ -213,7 +181,7 @@ static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* pac
 
 	printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
 
-	if (add_rule(ip_addr, payload.port, payload.ttl, loop_args->nft) != 0)
+	if (nft_add_ipv4(ip_addr, payload.port, payload.ttl) != 0)
 		return;
 }
 
@@ -275,18 +243,15 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	struct nft_ctx* nft = nft_ctx_new(NFT_CTX_DEFAULT);
-	if (nft == NULL) {
-		fprintf(stderr, "Failed to initialize nftables context\n");
+	if (nft_ctx_init() != 0) {
 		exit(EXIT_FAILURE);
 	}
 
-	struct loop_args args = { nft };
-	pcap_loop(handle, 0, got_packet, (u8*)&args);
+	pcap_loop(handle, 0, got_packet, NULL);
 
 	pcap_freecode(&fp);
 	pcap_close(handle);
 	pcap_freealldevs(devices);
-	nft_ctx_free(nft);
+	nft_free();
 	return 0;
 }
