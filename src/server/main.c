@@ -221,17 +221,20 @@ int main(int argc, char* argv[])
 	handle = pcap_open_live(dev, SNAP_LEN, 1, 1000, errbuf);
 	if (handle == NULL) {
 		fprintf(stderr, "pcap_open_live: %s\n", errbuf);
+		pcap_freealldevs(devices);
 		exit(EXIT_FAILURE);
 	}
 
 	if (pcap_datalink(handle) != DLT_EN10MB) {
 		fprintf(stderr, "%s is not Ethernet\n", dev);
+		pcap_freealldevs(devices);
 		pcap_close(handle);
 		exit(EXIT_FAILURE);
 	}
 
 	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
 		fprintf(stderr, "pcap_compile failed: %s\n", pcap_geterr(handle));
+		pcap_freealldevs(devices);
 		pcap_close(handle);
 		exit(EXIT_FAILURE);
 	}
@@ -240,10 +243,15 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "pcap_setfilter failed: %s\n", pcap_geterr(handle));
 		pcap_freecode(&fp);
 		pcap_close(handle);
+		pcap_freealldevs(devices);
 		exit(EXIT_FAILURE);
 	}
 
 	if (nft_ctx_init() != 0) {
+		pcap_freecode(&fp);
+		pcap_close(handle);
+		pcap_freealldevs(devices);
+		nft_free();
 		exit(EXIT_FAILURE);
 	}
 
