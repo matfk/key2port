@@ -28,11 +28,11 @@
 
 #define WORKER_NUM 16
 
-static atomic_int count = 0;
+static atomic_int count = 1;
 
 struct pcap_event {
-	u8* packet;
-	struct pcap_pkthdr pkthdr;
+	struct pcap_pkthdr header;
+	u8 packet[];
 };
 
 struct ethernet_hdr {
@@ -125,13 +125,13 @@ static int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* 
 		return -1;
 
 	p += ETHER_LEN;
-	packet_len - ETHER_LEN;
+	packet_len -= ETHER_LEN;
 
 	if (ip_parse_hdr(p, packet_len, ip, &ip_len) != 0)
 		return -1;
 
 	p += ip_len;
-	packet_len - ip_len;
+	packet_len -= ip_len;
 
 	if (udp_parse_hdr(p, packet_len, udp) != 0)
 		return -1;
@@ -148,70 +148,94 @@ void* worker(void* arg)
 {
 	int i = (int)(intptr_t)arg;
 	printf("starting worker: %d\n", i);
-}
 
-static void workers_init()
-{
-	for (int i = 0; i < WORKER_NUM; i++) {
-		pthread_create(&tids[i], NULL, worker, (void*)(intptr_t)i);
-	}
+	while (1) {
+		struct pcap_event* event = (struct pcap_event*)spsc_pop(&rings[i]);
+		printf("Worker %d\n", i);
 
-	for (int i = 0; i < WORKER_NUM; i++) {
-		pthread_join(tids[i], NULL);
+		struct pcap_pkthdr* header = &event->header;
+		u8* packet = event->packet;
+
+		struct ethernet_hdr eth_hdr;
+		struct ip_hdr ip_hdr;
+		struct udp_hdr udp_hdr;
+		struct spa_hdr hdr;
+
+		int parsed_len = parse_hdrs(packet, header->caplen, &eth_hdr, &ip_hdr, &udp_hdr);
+		if (parsed_len == -1) {
+			free(event);
+			continue;
+		}
+
+		int len = header->caplen - parsed_len;
+
+		FILE* keyfile = fopen("key.pub", "rb");
+		if (keyfile == NULL) {
+			free(event);
+			continue;
+		}
+
+		char publine[512];
+		if (read_to_string(publine, sizeof(publine), keyfile) != 0) {
+			free(event);
+			continue;
+		}
+
+		u8 pk[crypto_sign_PUBLICKEYBYTES];
+		if (parse_ssh_ed25519_publine(publine, pk) != 0) {
+			printf("Could not parse publine\n");
+			free(event);
+			continue;
+		}
+
+		u8* spa = packet + parsed_len;
+		if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
+			printf("Packet Not verified\n");
+			free(event);
+			continue;
+		}
+
+		struct spa_payload payload;
+		if ((len - SPA_HDR_LEN) < sizeof(payload)) {
+			free(event);
+			continue;
+		}
+
+		memcpy(&payload, spa + SPA_HDR_LEN, sizeof(payload));
+
+		char ip_addr[INET_ADDRSTRLEN];
+		if (inet_ntop(AF_INET, &ip_hdr.ip_src, ip_addr, INET_ADDRSTRLEN) == NULL) {
+			free(event);
+			continue;
+		}
+
+		printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
+
+		if (nft_add_ipv4(ip_addr, payload.port, payload.ttl) != 0) {
+			free(event);
+			continue;
+		}
+
+		free(event);
 	}
 }
 
 static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
 {
 	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
+	int worker_idx = curr_count % WORKER_NUM;
 	printf("Packet Count: %d\n", curr_count);
 
-	struct ethernet_hdr eth_hdr;
-	struct ip_hdr ip_hdr;
-	struct udp_hdr udp_hdr;
-	struct spa_hdr hdr;
-
-	int parsed_len = parse_hdrs(packet, header->caplen, &eth_hdr, &ip_hdr, &udp_hdr);
-	if (parsed_len == -1) {
+	struct pcap_event* event = malloc(sizeof(struct pcap_event) + header->caplen);
+	if (event == NULL)
 		return;
+
+	event->header = *header;
+	memcpy(event->packet, packet, header->caplen);
+
+	if (spsc_push(&rings[worker_idx], event) != 0) {
+		free(event);
 	}
-
-	int len = header->caplen - parsed_len;
-
-	FILE* keyfile = fopen("key.pub", "rb");
-	if (keyfile == NULL)
-		return;
-
-	char publine[512];
-	if (read_to_string(publine, sizeof(publine), keyfile) != 0)
-		return;
-
-	u8 pk[crypto_sign_PUBLICKEYBYTES];
-	if (parse_ssh_ed25519_publine(publine, pk) != 0) {
-		printf("Could not parse publine\n");
-		return;
-	}
-
-	u8* spa = packet + parsed_len;
-	if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
-		printf("Packet Not verified\n");
-		return;
-	}
-
-	struct spa_payload payload;
-	if ((len - SPA_HDR_LEN) < sizeof(payload))
-		return;
-
-	memcpy(&payload, spa + SPA_HDR_LEN, sizeof(payload));
-
-	char ip_addr[INET_ADDRSTRLEN];
-	if (inet_ntop(AF_INET, &ip_hdr.ip_src, ip_addr, INET_ADDRSTRLEN) == NULL)
-		return;
-
-	printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
-
-	if (nft_add_ipv4(ip_addr, payload.port, payload.ttl) != 0)
-		return;
 }
 
 int main(int argc, char* argv[])
@@ -284,8 +308,15 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	workers_init();
+	for (int i = 0; i < WORKER_NUM; i++) {
+		pthread_create(&tids[i], NULL, worker, (void*)(intptr_t)i);
+	}
+
 	pcap_loop(handle, 0, got_packet, NULL);
+
+	for (int i = 0; i < WORKER_NUM; i++) {
+		pthread_join(tids[i], NULL);
+	}
 
 	pcap_freecode(&fp);
 	pcap_close(handle);
