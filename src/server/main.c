@@ -15,7 +15,9 @@
 #include <core/types.h>
 #include <libspa/spa.h>
 #include <libspa/key.h>
+#include <pthread.h>
 #include "nft.h"
+#include "spsc.h"
 
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
@@ -24,7 +26,14 @@
 #define BUFFER_LEN 256
 #define UDP_LEN 8
 
+#define WORKER_NUM 16
+
 static atomic_int count = 0;
+
+struct pcap_event {
+	u8* packet;
+	struct pcap_pkthdr pkthdr;
+};
 
 struct ethernet_hdr {
 	u_char ether_dhost[ETHER_ADDR_LEN];
@@ -130,6 +139,26 @@ static int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* 
 	p += UDP_LEN;
 
 	return (int)(p - packet);
+}
+
+pthread_t tids[WORKER_NUM];
+struct spsc_ring rings[WORKER_NUM];
+
+void* worker(void* arg)
+{
+	int i = (int)(intptr_t)arg;
+	printf("starting worker: %d\n", i);
+}
+
+static void workers_init()
+{
+	for (int i = 0; i < WORKER_NUM; i++) {
+		pthread_create(&tids[i], NULL, worker, (void*)(intptr_t)i);
+	}
+
+	for (int i = 0; i < WORKER_NUM; i++) {
+		pthread_join(tids[i], NULL);
+	}
 }
 
 static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
@@ -255,6 +284,7 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	workers_init();
 	pcap_loop(handle, 0, got_packet, NULL);
 
 	pcap_freecode(&fp);
