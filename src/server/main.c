@@ -16,8 +16,8 @@
 #include <libspa/spa.h>
 #include <libspa/key.h>
 #include <pthread.h>
-#include "nft.h"
-#include "spsc.h"
+#include <server/nft.h>
+#include <server/spsc.h>
 
 #define SNAP_LEN 1518
 #define ETHER_LEN 14
