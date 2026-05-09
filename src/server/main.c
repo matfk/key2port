@@ -36,19 +36,19 @@ struct pcap_event {
 };
 
 struct ethernet_hdr {
-	u_char ether_dhost[ETHER_ADDR_LEN];
-	u_char ether_shost[ETHER_ADDR_LEN];
+	u8 ether_dhost[ETHER_ADDR_LEN];
+	u8 ether_shost[ETHER_ADDR_LEN];
 	u16 ether_type;
 } __attribute__((packed));
 
 struct ip_hdr {
-	u_char ip_vhl;
-	u_char ip_tos;
+	u8 ip_vhl;
+	u8 ip_tos;
 	u16 ip_len;
 	u16 ip_id;
 	u16 ip_off;
-	u_char ip_ttl;
-	u_char ip_p;
+	u8 ip_ttl;
+	u8 ip_p;
 	u16 ip_sum;
 	struct in_addr ip_src, ip_dst;
 } __attribute__((packed));
@@ -63,7 +63,7 @@ struct udp_hdr {
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
 #define IP_V(ip) (((ip)->ip_vhl) >> 4)
 
-static int ethernet_parse_hdr(const u_char* packet, size_t len, struct ethernet_hdr* hdr)
+static int ethernet_parse_hdr(const u8* packet, size_t len, struct ethernet_hdr* hdr)
 {
 	if (len < ETHER_LEN)
 		return 1;
@@ -77,7 +77,7 @@ static int ethernet_parse_hdr(const u_char* packet, size_t len, struct ethernet_
 	return 0;
 }
 
-static int ip_parse_hdr(const u_char* packet, size_t len, struct ip_hdr* hdr, int* out_ip_len)
+static int ip_parse_hdr(const u8* packet, size_t len, struct ip_hdr* hdr, int* out_ip_len)
 {
 	if (len < IP_LEN)
 		return 1;
@@ -102,7 +102,7 @@ static int ip_parse_hdr(const u_char* packet, size_t len, struct ip_hdr* hdr, in
 	return 0;
 }
 
-static int udp_parse_hdr(const u_char* packet, size_t len, struct udp_hdr* hdr)
+static int udp_parse_hdr(const u8* packet, size_t len, struct udp_hdr* hdr)
 {
 	if (len < UDP_LEN)
 		return 1;
