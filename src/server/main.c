@@ -28,7 +28,7 @@
 
 #define WORKER_NUM 16
 
-static atomic_int count = 1;
+static atomic_uint count = 1;
 
 struct pcap_event {
 	struct pcap_pkthdr header;
@@ -222,8 +222,8 @@ void* worker(void* arg)
 
 static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
 {
-	int curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
-	int worker_idx = curr_count % WORKER_NUM;
+	u32 curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
+	u32 worker_idx = curr_count % WORKER_NUM;
 	printf("Packet Count: %d\n", curr_count);
 
 	struct pcap_event* event = malloc(sizeof(struct pcap_event) + header->caplen);
