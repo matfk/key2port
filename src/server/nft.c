@@ -46,18 +46,18 @@ int nft_add_ipv4(char* ipv4, u16 port, u32 ttl)
 
 	char commands[1024];
 	snprintf(commands, sizeof(commands),
-		 "add table inet occultus\n"
-		 "add set inet occultus temp_allowed { type ipv4_addr . inet_service; flags timeout; }\n"
-		 "add chain inet occultus prerouting { type filter hook prerouting priority -100; }\n"
+		 "add table inet %s\n"
+		 "add set inet %s temp_allowed { type ipv4_addr . inet_service; flags timeout; }\n"
+		 "add chain inet %s prerouting { type filter hook prerouting priority -100; }\n"
 
 		 // flush chain to prevent duplicate rules
-		 "flush chain inet occultus prerouting\n"
+		 "flush chain inet %s prerouting\n"
 
 		 // mark with 0x99
-		 "add rule inet occultus prerouting ip saddr . tcp dport @temp_allowed meta mark set 0x99\n"
+		 "add rule inet %s prerouting ip saddr . tcp dport @temp_allowed meta mark set 0x99\n"
 
 		 "add element inet %s temp_allowed { %s . %d timeout %ds }\n",
-		 NFT_TABLE, ipv4, port, ttl);
+		 NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, ipv4, port, ttl);
 
 	pthread_mutex_lock(&nft_mutex);
 	int r = nft_run_cmd_from_buffer(nft, commands);

@@ -17,7 +17,7 @@ struct spsc_ring {
 	atomic_int consumer_state;
 };
 
-struct spsc_ring spsc_init();
+void spsc_init(struct spsc_ring* ring);
 int spsc_push(struct spsc_ring* ring, void* data);
 void* spsc_pop(struct spsc_ring* ring);
 

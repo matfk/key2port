@@ -17,12 +17,10 @@ static inline void futex_wake_one(atomic_int* p)
 	syscall(SYS_futex, p, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
 
-struct spsc_ring spsc_init()
+void spsc_init(struct spsc_ring* ring)
 {
-	struct spsc_ring ring;
-	atomic_store(&ring.head, 0);
-	atomic_store(&ring.tail, 0);
-	return ring;
+	atomic_store(&ring->head, 0);
+	atomic_store(&ring->tail, 0);
 }
 
 int spsc_push(struct spsc_ring* ring, void* data)

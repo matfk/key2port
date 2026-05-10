@@ -18,229 +18,11 @@
 #include <pthread.h>
 #include <server/nft.h>
 #include <server/spsc.h>
+#include <server/packet_parser.h>
+#include <server/worker.h>
 
-#define SNAP_LEN 1518
-#define ETHER_LEN 14
-#define ETHER_ADDR_LEN 6
-#define IP_LEN 20
-#define BUFFER_LEN 256
-#define UDP_LEN 8
-
-#define WORKER_NUM 16
-
-static atomic_uint count = 1;
-
-struct pcap_event {
-	struct pcap_pkthdr header;
-	u8 packet[];
-};
-
-struct ethernet_hdr {
-	u8 ether_dhost[ETHER_ADDR_LEN];
-	u8 ether_shost[ETHER_ADDR_LEN];
-	u16 ether_type;
-} __attribute__((packed));
-
-struct ip_hdr {
-	u8 ip_vhl;
-	u8 ip_tos;
-	u16 ip_len;
-	u16 ip_id;
-	u16 ip_off;
-	u8 ip_ttl;
-	u8 ip_p;
-	u16 ip_sum;
-	struct in_addr ip_src, ip_dst;
-} __attribute__((packed));
-
-struct udp_hdr {
-	u16 source;
-	u16 dest;
-	u16 len;
-	u16 check;
-} __attribute__((packed));
-
-#define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
-#define IP_V(ip) (((ip)->ip_vhl) >> 4)
-
-static int ethernet_parse_hdr(const u8* packet, size_t len, struct ethernet_hdr* hdr)
+int start_capture(char* dev)
 {
-	if (len < ETHER_LEN)
-		return 1;
-
-	memcpy(hdr, packet, sizeof(*hdr));
-	hdr->ether_type = ntohs(hdr->ether_type);
-
-	if (hdr->ether_type != 0x0800)
-		return 1;
-
-	return 0;
-}
-
-static int ip_parse_hdr(const u8* packet, size_t len, struct ip_hdr* hdr, int* out_ip_len)
-{
-	if (len < IP_LEN)
-		return 1;
-
-	memcpy(hdr, packet, IP_LEN);
-	if (IP_V(hdr) != 4)
-		return 1;
-
-	int size_ip = IP_HL(hdr) * 4;
-	if (size_ip < IP_LEN)
-		return 1;
-
-	if (len < size_ip)
-		return 1;
-
-	hdr->ip_len = ntohs(hdr->ip_len);
-	hdr->ip_id = ntohs(hdr->ip_id);
-	hdr->ip_off = ntohs(hdr->ip_off);
-	hdr->ip_sum = ntohs(hdr->ip_sum);
-
-	*out_ip_len = size_ip;
-	return 0;
-}
-
-static int udp_parse_hdr(const u8* packet, size_t len, struct udp_hdr* hdr)
-{
-	if (len < UDP_LEN)
-		return 1;
-
-	memcpy(hdr, packet, UDP_LEN);
-	hdr->source = ntohs(hdr->source);
-	hdr->dest = ntohs(hdr->dest);
-	hdr->len = ntohs(hdr->len);
-	hdr->check = ntohs(hdr->check);
-
-	return 0;
-}
-
-static int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* eth, struct ip_hdr* ip, struct udp_hdr* udp)
-{
-	u8* p = packet;
-	int ip_len;
-
-	if (ethernet_parse_hdr(p, packet_len, eth) != 0)
-		return -1;
-
-	p += ETHER_LEN;
-	packet_len -= ETHER_LEN;
-
-	if (ip_parse_hdr(p, packet_len, ip, &ip_len) != 0)
-		return -1;
-
-	p += ip_len;
-	packet_len -= ip_len;
-
-	if (udp_parse_hdr(p, packet_len, udp) != 0)
-		return -1;
-
-	p += UDP_LEN;
-
-	return (int)(p - packet);
-}
-
-pthread_t tids[WORKER_NUM];
-struct spsc_ring rings[WORKER_NUM];
-
-void* worker(void* arg)
-{
-	int i = (int)(intptr_t)arg;
-	printf("starting worker: %d\n", i);
-
-	while (1) {
-		struct pcap_event* event = (struct pcap_event*)spsc_pop(&rings[i]);
-		printf("Worker %d\n", i);
-
-		struct pcap_pkthdr* header = &event->header;
-		u8* packet = event->packet;
-
-		struct ethernet_hdr eth_hdr;
-		struct ip_hdr ip_hdr;
-		struct udp_hdr udp_hdr;
-		struct spa_hdr hdr;
-
-		int parsed_len = parse_hdrs(packet, header->caplen, &eth_hdr, &ip_hdr, &udp_hdr);
-		if (parsed_len == -1) {
-			free(event);
-			continue;
-		}
-
-		int len = header->caplen - parsed_len;
-
-		FILE* keyfile = fopen("key.pub", "rb");
-		if (keyfile == NULL) {
-			free(event);
-			continue;
-		}
-
-		char publine[512];
-		if (read_to_string(publine, sizeof(publine), keyfile) != 0) {
-			free(event);
-			continue;
-		}
-
-		u8 pk[crypto_sign_PUBLICKEYBYTES];
-		if (parse_ssh_ed25519_publine(publine, pk) != 0) {
-			printf("Could not parse publine\n");
-			free(event);
-			continue;
-		}
-
-		u8* spa = packet + parsed_len;
-		if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
-			printf("Packet Not verified\n");
-			free(event);
-			continue;
-		}
-
-		struct spa_payload payload;
-		if ((len - SPA_HDR_LEN) < sizeof(payload)) {
-			free(event);
-			continue;
-		}
-
-		memcpy(&payload, spa + SPA_HDR_LEN, sizeof(payload));
-
-		char ip_addr[INET_ADDRSTRLEN];
-		if (inet_ntop(AF_INET, &ip_hdr.ip_src, ip_addr, INET_ADDRSTRLEN) == NULL) {
-			free(event);
-			continue;
-		}
-
-		printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
-
-		if (nft_add_ipv4(ip_addr, payload.port, payload.ttl) != 0) {
-			free(event);
-			continue;
-		}
-
-		free(event);
-	}
-}
-
-static void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
-{
-	u32 curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
-	u32 worker_idx = curr_count % WORKER_NUM;
-	printf("Packet Count: %d\n", curr_count);
-
-	struct pcap_event* event = malloc(sizeof(struct pcap_event) + header->caplen);
-	if (event == NULL)
-		return;
-
-	event->header = *header;
-	memcpy(event->packet, packet, header->caplen);
-
-	if (spsc_push(&rings[worker_idx], event) != 0) {
-		free(event);
-	}
-}
-
-int main(int argc, char* argv[])
-{
-	char* dev = NULL;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle;
 	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
@@ -249,9 +31,7 @@ int main(int argc, char* argv[])
 	bpf_u_int32 net;
 	pcap_if_t* devices = NULL;
 
-	if (argc == 2) {
-		dev = argv[1];
-	} else {
+	if (dev == NULL) {
 		if (pcap_findalldevs(&devices, errbuf) == -1) {
 			fprintf(stderr, "pcap_findalldevs: %s\n", errbuf);
 			exit(EXIT_FAILURE);
@@ -308,19 +88,19 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	for (int i = 0; i < WORKER_NUM; i++) {
-		pthread_create(&tids[i], NULL, worker, (void*)(intptr_t)i);
-	}
-
+	worker_pool_init();
 	pcap_loop(handle, 0, got_packet, NULL);
-
-	for (int i = 0; i < WORKER_NUM; i++) {
-		pthread_join(tids[i], NULL);
-	}
+	worker_pool_join();
 
 	pcap_freecode(&fp);
 	pcap_close(handle);
 	pcap_freealldevs(devices);
 	nft_free();
+	return 0;
+}
+
+int main(int argc, char* argv[])
+{
+	start_capture(argv[1]);
 	return 0;
 }
