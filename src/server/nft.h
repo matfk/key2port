@@ -4,7 +4,7 @@
 #include <core/types.h>
 #include <nftables/libnftables.h>
 
-#define NFT_TABLE "occultus"
+#define NFT_TABLE "key2port"
 #define NFT_MAX_TTL 3600
 
 int nft_ctx_init();
