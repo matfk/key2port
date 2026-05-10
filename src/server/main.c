@@ -20,6 +20,7 @@
 #include <server/spsc.h>
 #include <server/packet_parser.h>
 #include <server/worker.h>
+#include <core/cpu.h>
 
 int start_capture(char* dev)
 {
@@ -88,8 +89,8 @@ int start_capture(char* dev)
 		exit(EXIT_FAILURE);
 	}
 
-	worker_pool_init();
-	pcap_loop(handle, 0, got_packet, NULL);
+	worker_pool_init(nprocs());
+	pcap_loop(handle, 0, worker_dispatch, NULL);
 	worker_pool_join();
 
 	pcap_freecode(&fp);

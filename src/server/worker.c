@@ -31,8 +31,10 @@ typedef struct {
 	struct spsc_ring ring;
 } worker_t;
 
-static atomic_uint count = 1;
-static worker_t workers[WORKER_NUM];
+static atomic_uint count = 0;
+
+static worker_t* workers = NULL;
+static size_t workers_count = 0;
 
 void* worker(void* arg)
 {
@@ -59,6 +61,7 @@ void* worker(void* arg)
 
 		int len = header->caplen - parsed_len;
 
+		// TODO: REMOVE
 		FILE* keyfile = fopen("key.pub", "rb");
 		if (keyfile == NULL) {
 			free(event);
@@ -110,10 +113,10 @@ void* worker(void* arg)
 	}
 }
 
-void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
+void worker_dispatch(u8* args, const struct pcap_pkthdr* header, const u8* packet)
 {
 	u32 curr_count = atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
-	u32 worker_idx = curr_count % WORKER_NUM;
+	u32 worker_idx = curr_count % workers_count;
 	printf("Packet Count: %d\n", curr_count);
 
 	capture_event* event = malloc(sizeof(capture_event) + header->caplen);
@@ -128,9 +131,12 @@ void got_packet(u8* args, const struct pcap_pkthdr* header, const u8* packet)
 	}
 }
 
-void worker_pool_init()
+void worker_pool_init(size_t n)
 {
-	for (int i = 0; i < WORKER_NUM; i++) {
+	workers_count = n;
+	workers = (worker_t*)malloc(sizeof(worker_t) * n);
+
+	for (int i = 0; i < n; i++) {
 		worker_t w;
 		pthread_create(&w.tid, NULL, worker, (void*)(intptr_t)i);
 		spsc_init(&w.ring);
@@ -140,7 +146,12 @@ void worker_pool_init()
 
 void worker_pool_join()
 {
-	for (int i = 0; i < WORKER_NUM; i++) {
+	if (workers == NULL)
+		return;
+
+	for (int i = 0; i < workers_count; i++) {
 		pthread_join(workers[i].tid, NULL);
 	}
+
+	free(workers);
 }
