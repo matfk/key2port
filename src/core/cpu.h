@@ -3,6 +3,6 @@
 
 #include <stdlib.h>
 
-size_t nprocs();
+size_t getnprocs();
 
 #endif

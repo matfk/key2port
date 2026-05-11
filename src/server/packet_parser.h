@@ -18,7 +18,6 @@
 #include <libspa/spa.h>
 #include <libspa/key.h>
 
-#define SNAP_LEN 1518
 #define ETHER_LEN 14
 #define ETHER_ADDR_LEN 6
 #define IP_LEN 20
