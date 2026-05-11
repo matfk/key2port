@@ -17,15 +17,67 @@
 #include <libspa/key.h>
 #include <pthread.h>
 #include <server/nft.h>
-#include <server/spsc.h>
 #include <server/packet_parser.h>
-#include <server/worker.h>
 #include <server/capture.h>
-#include <core/cpu.h>
+
+void handler(u8* args, const struct pcap_pkthdr* header, const u8* packet)
+{
+	struct ethernet_hdr eth_hdr;
+	struct ip_hdr ip_hdr;
+	struct udp_hdr udp_hdr;
+	struct spa_hdr hdr;
+
+	int parsed_len = parse_hdrs(packet, header->caplen, &eth_hdr, &ip_hdr, &udp_hdr);
+	if (parsed_len == -1) {
+		return;
+	}
+
+	int len = header->caplen - parsed_len;
+
+	// TODO: REMOVE
+	FILE* keyfile = fopen("key.pub", "rb");
+	if (keyfile == NULL) {
+		return;
+	}
+
+	char publine[512];
+	if (read_to_string(publine, sizeof(publine), keyfile) != 0) {
+		return;
+	}
+
+	u8 pk[crypto_sign_PUBLICKEYBYTES];
+	if (parse_ssh_ed25519_publine(publine, pk) != 0) {
+		printf("Could not parse publine\n");
+		return;
+	}
+
+	u8* spa = packet + parsed_len;
+	if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
+		printf("Packet Not verified\n");
+		return;
+	}
+
+	struct spa_payload payload;
+	if ((len - SPA_HDR_LEN) < sizeof(payload)) {
+		return;
+	}
+
+	memcpy(&payload, spa + SPA_HDR_LEN, sizeof(payload));
+
+	char ip_addr[INET_ADDRSTRLEN];
+	if (inet_ntop(AF_INET, &ip_hdr.ip_src, ip_addr, INET_ADDRSTRLEN) == NULL) {
+		return;
+	}
+
+	printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
+
+	if (nft_add_ipv4(ip_addr, payload.port, payload.ttl) != 0) {
+		return;
+	}
+}
 
 int main(int argc, char* argv[])
 {
-	int nprocs = getnprocs();
 	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
 	char* dev = argv[1];
 
@@ -37,11 +89,9 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	worker_pool_init(nprocs);
-	pcap_cap_start(worker_dispatch);
+	pcap_cap_start(handler);
 
 	pcap_cap_free();
-	worker_pool_join();
 	nft_free();
 	return 0;
 }
