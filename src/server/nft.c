@@ -6,7 +6,6 @@
 #include "nft.h"
 
 static struct nft_ctx* nft = NULL;
-static pthread_mutex_t nft_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int nft_ctx_init()
 {
@@ -59,9 +58,7 @@ int nft_add_ipv4(char* ipv4, u16 port, u32 ttl)
 		 "add element inet %s temp_allowed { %s . %d timeout %ds }\n",
 		 NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, ipv4, port, ttl);
 
-	pthread_mutex_lock(&nft_mutex);
 	int r = nft_run_cmd_from_buffer(nft, commands);
-	pthread_mutex_unlock(&nft_mutex);
 
 	if (r < 0) {
 		fprintf(stderr, "nftables: failed to apply rule [ipv4=%s port=%d ttl=%d]\n", ipv4, port, ttl);
