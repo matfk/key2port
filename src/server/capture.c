@@ -35,6 +35,11 @@ void pcap_cap_free()
 	}
 }
 
+pcap_t* pcap_get_handle()
+{
+	return handle;
+}
+
 int pcap_cap_init(char* dev, const char* filter_exp)
 {
 	bpf_u_int32 mask;
@@ -87,9 +92,4 @@ int pcap_cap_init(char* dev, const char* filter_exp)
 	}
 
 	return 0;
-}
-
-void pcap_cap_start(pcap_handler capture_handler)
-{
-	pcap_loop(handle, 0, capture_handler, NULL);
 }
