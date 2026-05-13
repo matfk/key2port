@@ -10,7 +10,7 @@ typedef struct {
 	struct bpf_program fp;
 } cap_ctx_t;
 
-void pcap_cap_free(cap_ctx_t* ctx);
-int pcap_cap_init(cap_ctx_t* ctx, char* dev, const char* filter_exp);
+void cap_ctx_free(cap_ctx_t* ctx);
+int cap_ctx_init(cap_ctx_t* ctx, char* dev, const char* filter_exp);
 
 #endif

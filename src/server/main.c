@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	if (pcap_cap_init(&cap_ctx, dev, filter_exp) != 0) {
+	if (cap_ctx_init(&cap_ctx, dev, filter_exp) != 0) {
 		return 1;
 	}
 
@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	pcap_cap_free(&cap_ctx);
+	cap_ctx_free(&cap_ctx);
 	nft_free();
 	return 0;
 }
