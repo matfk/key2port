@@ -5,26 +5,21 @@
 #include <server/config.h>
 #include <core/string.h>
 
-void config_print(config_t* config)
-{
-	printf("interface = %s\n", config->interface);
-	printf("sqlite_db = %s\n", config->sqlite_db);
-	printf("replay_window = %d\n", config->replay_window);
-	printf("ttl = %d\n", config->ttl);
-	printf("min_capture_port = %d\n", config->min_capture_port);
-	printf("max_capture_port = %d\n", config->max_capture_port);
-}
+config_t global_config;
 
-int config_load(const char* path, config_t* config)
+int config_load(const char* path)
 {
+	config_t* config = &global_config;
+
 	FILE* fp = fopen(path, "r");
 	if (fp == NULL) {
-		return 1;
+		perror("fopen");
+		return -1;
 	}
 
 	memset(config, 0, sizeof(config_t));
 
-	char line[8192];
+	char line[PATH_MAX + 64];
 	while (fgets(line, sizeof(line), fp) != NULL) {
 		if (sscanf(line, "interface = %31s", config->interface) == 1) {
 			trim_ends(config->interface);

@@ -26,12 +26,15 @@ int main(int argc, char* argv[])
 	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
 	char* dev = argv[1];
 
-	if (nft_ctx_init() != 0) {
+	if (config_load("conf/key2port.conf") != 0) {
 		return 1;
 	}
 
 	if (pcap_cap_init(dev, filter_exp) != 0) {
-		nft_free();
+		return 1;
+	}
+
+	if (nft_ctx_init() != 0) {
 		return 1;
 	}
 
