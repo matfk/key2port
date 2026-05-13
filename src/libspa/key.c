@@ -1,4 +1,3 @@
-#define _DEFAULT_SOURCE
 #include <stdlib.h>
 #include <string.h>
 #include <sodium.h>
@@ -231,9 +230,9 @@ int parse_openssh_priv_pem(const char* pem, u8 out_seed[32])
 		free(bin);
 		return -1;
 	}
-	u32 check1 = be32(bin + p);
+	// u32 check1 = be32(bin + p);
 	p += 4;
-	u32 check2 = be32(bin + p);
+	// u32 check2 = be32(bin + p);
 	p += 4;
 
 	// parse first key entry

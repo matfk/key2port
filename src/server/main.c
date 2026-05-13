@@ -1,4 +1,3 @@
-#define _DEFAULT_SOURCE
 #include <sys/types.h>
 #include <pcap.h>
 #include <stdio.h>
@@ -21,8 +20,18 @@
 #include <server/capture.h>
 #include <server/config.h>
 
+void print_usage()
+{
+	printf("Usage: <interface>\n");
+}
+
 int main(int argc, char* argv[])
 {
+	if (argc < 2) {
+		print_usage();
+		return 1;
+	}
+
 	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
 	char* dev = argv[1];
 	cap_ctx_t cap_ctx;
@@ -73,14 +82,14 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
-		u8* spa = packet + parsed_len;
+		const u8* spa = packet + parsed_len;
 		if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
 			printf("Packet Not verified\n");
 			continue;
 		}
 
 		struct spa_payload payload;
-		if ((len - SPA_HDR_LEN) < sizeof(payload)) {
+		if ((u64)(len - SPA_HDR_LEN) < sizeof(payload)) {
 			continue;
 		}
 
