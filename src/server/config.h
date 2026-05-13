@@ -14,7 +14,7 @@ typedef struct {
 	u16 max_capture_port;
 } config_t;
 
-extern config_t global_config;
+const config_t* config_get();
 int config_load(const char* path);
 
 #endif
