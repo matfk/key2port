@@ -19,6 +19,7 @@
 #include <server/nft.h>
 #include <server/packet_parser.h>
 #include <server/capture.h>
+#include <server/config.h>
 
 int main(int argc, char* argv[])
 {
