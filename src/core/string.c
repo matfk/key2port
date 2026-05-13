@@ -3,6 +3,30 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <core/types.h>
+#include <ctype.h>
+
+void trim_ends(char* str)
+{
+	if (str == NULL || *str == '\0')
+		return;
+
+	size_t len = strlen(str);
+	size_t start = 0;
+	size_t end = len - 1;
+
+	while (start < len && isspace(str[start]))
+		start++;
+
+	while (end >= start && isspace(str[end]))
+		end--;
+
+	int new_len = end - start + 1;
+	if (start > 0) {
+		memmove(str, str + start, new_len);
+	}
+
+	str[new_len] = '\0';
+}
 
 int read_to_string(char* str, size_t length, FILE* file)
 {

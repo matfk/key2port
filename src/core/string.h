@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
+void trim_ends(char* str);
 char* read_to_string(char* str, size_t length, FILE* file);
 size_t strnlen(const char* s, size_t maxlen);
 char* strndup(const char* s, size_t n);
