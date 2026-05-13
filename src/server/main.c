@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 
 		printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
 
-		if (nft_add_ipv4(ip_addr, payload.port, payload.ttl) != 0) {
+		if (nft_allow_port(payload.port, ip_addr, payload.ttl) != 0) {
 			return 1;
 		}
 	}

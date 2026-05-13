@@ -8,8 +8,8 @@
 #define NFT_MAX_TTL 3600
 
 int nft_ctx_init();
-struct nft_ctx* nft_get_ctx();
+struct nft_ctx* nft_ctx_get();
 void nft_free();
-int nft_add_ipv4(char* ipv4, u16 port, u32 ttl);
+int nft_allow_port(u16 port, const char* ip, u32 ttl);
 
 #endif

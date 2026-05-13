@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <core/types.h>
-#include "nft.h"
+#include <server/nft.h>
 
 static struct nft_ctx* nft = NULL;
 
@@ -21,7 +21,7 @@ int nft_ctx_init()
 	return 0;
 }
 
-struct nft_ctx* nft_get_ctx()
+struct nft_ctx* nft_ctx_get()
 {
 	return nft;
 }
@@ -34,7 +34,7 @@ void nft_free()
 	}
 }
 
-int nft_add_ipv4(char* ipv4, u16 port, u32 ttl)
+int nft_allow_port(u16 port, const char* ip, u32 ttl)
 {
 	if (nft == NULL) {
 		fprintf(stderr, "nftables: context not initialized\n");
@@ -56,12 +56,12 @@ int nft_add_ipv4(char* ipv4, u16 port, u32 ttl)
 		 "add rule inet %s prerouting ip saddr . tcp dport @temp_allowed meta mark set 0x99\n"
 
 		 "add element inet %s temp_allowed { %s . %d timeout %ds }\n",
-		 NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, ipv4, port, ttl);
+		 NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, NFT_TABLE, ip, port, ttl);
 
 	int r = nft_run_cmd_from_buffer(nft, commands);
 
 	if (r < 0) {
-		fprintf(stderr, "nftables: failed to apply rule [ipv4=%s port=%d ttl=%d]\n", ipv4, port, ttl);
+		fprintf(stderr, "nftables: failed to apply rule [ipv4=%s port=%d ttl=%d]\n", ip, port, ttl);
 		return -1;
 	}
 
