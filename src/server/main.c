@@ -25,12 +25,13 @@ int main(int argc, char* argv[])
 {
 	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
 	char* dev = argv[1];
+	cap_ctx_t cap_ctx;
 
 	if (config_load("conf/key2port.conf") != 0) {
 		return 1;
 	}
 
-	if (pcap_cap_init(dev, filter_exp) != 0) {
+	if (pcap_cap_init(&cap_ctx, dev, filter_exp) != 0) {
 		return 1;
 	}
 
@@ -38,7 +39,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	pcap_t* handle = pcap_get_handle();
+	pcap_t* handle = cap_ctx.handle;
 	struct pcap_pkthdr* header;
 	const u8* packet;
 
@@ -50,7 +51,7 @@ int main(int argc, char* argv[])
 
 		int parsed_len = parse_hdrs(packet, header->caplen, &eth_hdr, &ip_hdr, &udp_hdr);
 		if (parsed_len == -1) {
-			return 1;
+			continue;
 		}
 
 		int len = header->caplen - parsed_len;
@@ -58,46 +59,46 @@ int main(int argc, char* argv[])
 		// TODO: REMOVE
 		FILE* keyfile = fopen("key.pub", "rb");
 		if (keyfile == NULL) {
-			return 1;
+			continue;
 		}
 
 		char publine[512];
 		if (read_to_string(publine, sizeof(publine), keyfile) != 0) {
-			return 1;
+			continue;
 		}
 
 		u8 pk[crypto_sign_PUBLICKEYBYTES];
 		if (parse_ssh_ed25519_publine(publine, pk) != 0) {
 			printf("Could not parse publine\n");
-			return 1;
+			continue;
 		}
 
 		u8* spa = packet + parsed_len;
 		if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
 			printf("Packet Not verified\n");
-			return 1;
+			continue;
 		}
 
 		struct spa_payload payload;
 		if ((len - SPA_HDR_LEN) < sizeof(payload)) {
-			return 1;
+			continue;
 		}
 
 		memcpy(&payload, spa + SPA_HDR_LEN, sizeof(payload));
 
 		char ip_addr[INET_ADDRSTRLEN];
 		if (inet_ntop(AF_INET, &ip_hdr.ip_src, ip_addr, INET_ADDRSTRLEN) == NULL) {
-			return 1;
+			continue;
 		}
 
 		printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
 
 		if (nft_allow_port(payload.port, ip_addr, payload.ttl) != 0) {
-			return 1;
+			continue;
 		}
 	}
 
-	pcap_cap_free();
+	pcap_cap_free(&cap_ctx);
 	nft_free();
 	return 0;
 }

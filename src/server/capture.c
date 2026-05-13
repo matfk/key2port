@@ -10,84 +10,69 @@
 #include <arpa/inet.h>
 #include <core/string.h>
 #include <core/types.h>
+#include <server/capture.h>
 
 #define SNAP_LEN 1518
 
-static char errbuf[PCAP_ERRBUF_SIZE];
-static pcap_t* handle = NULL;
-static pcap_if_t* devices = NULL;
-
-static struct bpf_program fp;
-static int filter_init = 0;
-
-void pcap_cap_free()
+void pcap_cap_free(cap_ctx_t* ctx)
 {
-	if (filter_init) {
-		pcap_freecode(&fp);
+	if (ctx->handle != NULL) {
+		pcap_close(ctx->handle);
 	}
 
-	if (handle != NULL) {
-		pcap_close(handle);
+	if (ctx->devices != NULL) {
+		pcap_freealldevs(ctx->devices);
 	}
 
-	if (devices != NULL) {
-		pcap_freealldevs(devices);
-	}
+	pcap_freecode(&ctx->fp);
 }
 
-pcap_t* pcap_get_handle()
-{
-	return handle;
-}
-
-int pcap_cap_init(char* dev, const char* filter_exp)
+int pcap_cap_init(cap_ctx_t* ctx, char* dev, const char* filter_exp)
 {
 	bpf_u_int32 mask;
 	bpf_u_int32 net;
 
 	if (dev == NULL) {
-		if (pcap_findalldevs(&devices, errbuf) == -1) {
-			fprintf(stderr, "pcap_findalldevs: %s\n", errbuf);
+		if (pcap_findalldevs(&ctx->devices, ctx->errbuf) == -1) {
+			fprintf(stderr, "pcap_findalldevs: %s\n", ctx->errbuf);
 			return -1;
 		}
 
-		if (devices == NULL) {
+		if (ctx->devices == NULL) {
 			fprintf(stderr, "no devices found\n");
 			return -1;
 		}
 
-		dev = devices->name;
+		dev = ctx->devices->name;
 	}
 
-	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
+	if (pcap_lookupnet(dev, &net, &mask, ctx->errbuf) == -1) {
 		net = 0;
 		mask = 0;
 	}
 
-	handle = pcap_open_live(dev, SNAP_LEN, 1, 1000, errbuf);
-	if (handle == NULL) {
-		fprintf(stderr, "pcap_open_live: %s\n", errbuf);
-		pcap_cap_free();
+	ctx->handle = pcap_open_live(dev, SNAP_LEN, 1, 1000, ctx->errbuf);
+	if (ctx->handle == NULL) {
+		fprintf(stderr, "pcap_open_live: %s\n", ctx->errbuf);
+		pcap_cap_free(ctx);
 		return -1;
 	}
 
-	if (pcap_datalink(handle) != DLT_EN10MB) {
+	if (pcap_datalink(ctx->handle) != DLT_EN10MB) {
 		fprintf(stderr, "%s is not Ethernet\n", dev);
-		pcap_cap_free();
+		pcap_cap_free(ctx);
 		return -1;
 	}
 
-	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-		fprintf(stderr, "pcap_compile failed: %s\n", pcap_geterr(handle));
-		pcap_cap_free();
+	if (pcap_compile(ctx->handle, &ctx->fp, filter_exp, 0, net) == -1) {
+		fprintf(stderr, "pcap_compile failed: %s\n", pcap_geterr(ctx->handle));
+		pcap_cap_free(ctx);
 		return -1;
 	}
 
-	filter_init = 1;
-
-	if (pcap_setfilter(handle, &fp) == -1) {
-		fprintf(stderr, "pcap_setfilter failed: %s\n", pcap_geterr(handle));
-		pcap_cap_free();
+	if (pcap_setfilter(ctx->handle, &ctx->fp) == -1) {
+		fprintf(stderr, "pcap_setfilter failed: %s\n", pcap_geterr(ctx->handle));
+		pcap_cap_free(ctx);
 		return -1;
 	}
 
