@@ -114,5 +114,6 @@ int main(int argc, char* argv[])
 
 	cap_ctx_free(&cap_ctx);
 	nft_free();
+	db_close();
 	return 0;
 }

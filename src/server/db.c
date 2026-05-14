@@ -10,7 +10,7 @@
 
 static sqlite3* db = NULL;
 
-int db_truncate_keys()
+static int db_truncate_keys()
 {
 	char* err = NULL;
 	const char* sql_trunc = "DELETE FROM keys;";
