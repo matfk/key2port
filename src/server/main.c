@@ -70,20 +70,8 @@ int main(int argc, char* argv[])
 
 		int len = header->caplen - parsed_len;
 
-		// TODO: REMOVE
-		FILE* keyfile = fopen("key.pub", "rb");
-		if (keyfile == NULL) {
-			continue;
-		}
-
-		char publine[512];
-		if (read_to_string(publine, sizeof(publine), keyfile) != 0) {
-			continue;
-		}
-
 		u8 pk[crypto_sign_PUBLICKEYBYTES];
-		if (parse_ssh_ed25519_publine(publine, pk) != 0) {
-			printf("Could not parse publine\n");
+		if (db_select_key("key.pub", pk) != 0) {
 			continue;
 		}
 

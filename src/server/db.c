@@ -26,6 +26,38 @@ static int db_truncate_keys()
 	return 0;
 }
 
+int db_select_key(const char* name, u8 pk[crypto_sign_PUBLICKEYBYTES])
+{
+	sqlite3_stmt* stmt;
+	const char* sql = "SELECT key FROM keys WHERE name = ?;";
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		return -1;
+	}
+
+	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+
+	int step_rc = sqlite3_step(stmt);
+	if (step_rc == SQLITE_ROW) {
+		const void* blob = sqlite3_column_blob(stmt, 0);
+		int bytes = sqlite3_column_bytes(stmt, 0);
+
+		if (bytes == crypto_sign_PUBLICKEYBYTES) {
+			memcpy(pk, blob, bytes);
+		}
+
+		step_rc = 0;
+	} else if (step_rc == SQLITE_DONE) {
+		// not found
+		step_rc = -1;
+	} else {
+		step_rc = -2;
+	}
+
+	sqlite3_finalize(stmt);
+	return step_rc;
+}
+
 int db_insert_key(const char* path, const char* filename)
 {
 	FILE* keyfile = fopen(path, "rb");
@@ -36,12 +68,14 @@ int db_insert_key(const char* path, const char* filename)
 
 	char publine[512];
 	if (read_to_string(publine, sizeof(publine), keyfile) != 0) {
+		fclose(keyfile);
 		return -1;
 	}
 
 	u8 pk[crypto_sign_PUBLICKEYBYTES];
 	if (parse_ssh_ed25519_publine(publine, pk) != 0) {
 		printf("Could not parse publine\n");
+		fclose(keyfile);
 		return -1;
 	}
 
@@ -99,7 +133,7 @@ int db_load_keys(const char* directory_path)
 	return 0;
 }
 
-int db_insert_seen(const char nonce[SPA_NONCE_LEN], u32 timestamp)
+int db_insert_seen(const u8 nonce[SPA_NONCE_LEN], u32 timestamp)
 {
 	sqlite3_stmt* stmt;
 	const char* sql = "INSERT INTO seen (nonce, timestamp) VALUES (?, ?);";
@@ -109,8 +143,8 @@ int db_insert_seen(const char nonce[SPA_NONCE_LEN], u32 timestamp)
 		return -1;
 	}
 
-	sqlite3_bind_int64(stmt, 2, (u64)timestamp);
 	sqlite3_bind_blob(stmt, 1, nonce, SPA_NONCE_LEN, SQLITE_TRANSIENT);
+	sqlite3_bind_int64(stmt, 2, (u64)timestamp);
 
 	int step_rc = sqlite3_step(stmt);
 	if (step_rc != SQLITE_DONE) {

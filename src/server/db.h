@@ -5,7 +5,8 @@
 #include <libspa/spa.h>
 
 int db_init();
-int db_insert_seen(const char nonce[SPA_NONCE_LEN], u32 timestamp);
+int db_select_key(const char* name, u8 pk[crypto_sign_PUBLICKEYBYTES]);
+int db_insert_seen(const u8 nonce[SPA_NONCE_LEN], u32 timestamp);
 void db_close();
 
 #endif
