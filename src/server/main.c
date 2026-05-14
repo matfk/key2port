@@ -81,6 +81,25 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
+		if (db_nonce_seen(hdr.nonce) != 0) {
+			printf("nonce been seen\n");
+			continue;
+		}
+
+		if (db_insert_seen(hdr.nonce, hdr.timestamp) != 0) {
+			fprintf(stderr, "failed to insert seen\n");
+			continue;
+		}
+
+		const config_t* config = config_get();
+		u32 now_ts = (u32)time(NULL);
+		u32 packet_ts = hdr.timestamp;
+
+		if (packet_ts < (now_ts - config->replay_window) || packet_ts > (now_ts + config->replay_window)) {
+			printf("within replay window\n");
+			continue;
+		}
+
 		struct spa_payload payload;
 		if ((u64)(len - SPA_HDR_LEN) < sizeof(payload)) {
 			continue;

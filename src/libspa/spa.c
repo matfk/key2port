@@ -1,10 +1,9 @@
-#include "spa.h"
+#include <libspa/spa.h>
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <core/types.h>
-#include <server/db.h>
 
 size_t spa_serialize_hdr(const struct spa_hdr* hdr, u8* out)
 {
@@ -109,8 +108,6 @@ int spa_verify_packet(const u8* in, size_t len, const u8* pk, struct spa_hdr* hd
 	u8* sig = in + SPA_HDR_LEN + hdr->payload_len;
 	if (crypto_sign_verify_detached(sig, in, SPA_HDR_LEN + hdr->payload_len, pk) != 0)
 		return -1;
-
-	// TODO: enforce time, nonce and flags policies
 
 	return 0;
 }

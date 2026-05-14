@@ -133,6 +133,33 @@ int db_load_keys(const char* directory_path)
 	return 0;
 }
 
+int db_nonce_seen(const u8 nonce[SPA_NONCE_LEN])
+{
+	sqlite3_stmt* stmt;
+	const char* sql = "SELECT 1 FROM seen WHERE nonce = ? LIMIT 1";
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		fprintf(stderr, "prepare error: %s\n", sqlite3_errmsg(db));
+		return -1;
+	}
+
+	sqlite3_bind_blob(stmt, 1, nonce, SPA_NONCE_LEN, SQLITE_TRANSIENT);
+	int step_rc = sqlite3_step(stmt);
+	int exists = 0;
+
+	if (step_rc == SQLITE_ROW) {
+		exists = 1;
+	} else if (step_rc == SQLITE_DONE) {
+		exists = 0;
+	} else {
+		fprintf(stderr, "exec error: %s\n", sqlite3_errmsg(db));
+		exists = -1;
+	}
+
+	sqlite3_finalize(stmt);
+	return exists;
+}
+
 int db_insert_seen(const u8 nonce[SPA_NONCE_LEN], u32 timestamp)
 {
 	sqlite3_stmt* stmt;
@@ -153,8 +180,6 @@ int db_insert_seen(const u8 nonce[SPA_NONCE_LEN], u32 timestamp)
 
 	sqlite3_finalize(stmt);
 	return step_rc == SQLITE_DONE ? 0 : -1;
-
-	return 0;
 }
 
 int db_init()
