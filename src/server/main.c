@@ -23,27 +23,18 @@
 
 #define CONFIG_PATH "/etc/k2p/k2p.conf"
 
-void print_usage()
+int main(void)
 {
-	printf("Usage: <interface>\n");
-}
-
-int main(int argc, char* argv[])
-{
-	if (argc < 2) {
-		print_usage();
-		return 1;
-	}
-
 	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
-	char* dev = argv[1];
 	cap_ctx cap_ctx;
 
 	if (config_load(CONFIG_PATH) != 0) {
 		return 1;
 	}
 
-	if (cap_ctx_init(&cap_ctx, dev, filter_exp) != 0) {
+	k2pconfig* config = config_get();
+
+	if (cap_ctx_init(&cap_ctx, config->interface, filter_exp) != 0) {
 		return 1;
 	}
 
@@ -84,7 +75,6 @@ int main(int argc, char* argv[])
 		}
 
 		if (db_nonce_seen(hdr.nonce) != 0) {
-			printf("nonce been seen\n");
 			continue;
 		}
 
@@ -93,12 +83,10 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
-		const k2pconfig* config = config_get();
 		u32 now_ts = (u32)time(NULL);
 		u32 packet_ts = hdr.timestamp;
 
 		if (packet_ts < (now_ts - config->replay_window) || packet_ts > (now_ts + config->replay_window)) {
-			printf("within replay window\n");
 			continue;
 		}
 
