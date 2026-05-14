@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
-		const config_t* config = config_get();
+		const k2pconfig* config = config_get();
 		u32 now_ts = (u32)time(NULL);
 		u32 packet_ts = hdr.timestamp;
 

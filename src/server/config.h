@@ -13,9 +13,9 @@ typedef struct {
 	u32 ttl;
 	u16 min_capture_port;
 	u16 max_capture_port;
-} config_t;
+} k2pconfig;
 
-const config_t* config_get();
+const k2pconfig* config_get();
 int config_load(const char* path);
 
 #endif

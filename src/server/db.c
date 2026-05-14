@@ -188,7 +188,7 @@ int db_init()
 		return 0;
 	}
 
-	const config_t* config = config_get();
+	const k2pconfig* config = config_get();
 
 	if (sqlite3_open(config->sqlite_db, &db) != SQLITE_OK) {
 		fprintf(stderr, "failed to open database: %s\n", sqlite3_errmsg(db));

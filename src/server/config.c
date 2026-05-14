@@ -5,11 +5,11 @@
 #include <server/config.h>
 #include <core/string.h>
 
-static config_t config;
+static k2pconfig config;
 
-const config_t* config_get()
+const k2pconfig* config_get()
 {
-	return (const config_t*)&config;
+	return (const k2pconfig*)&config;
 }
 
 int config_load(const char* path)
@@ -20,7 +20,7 @@ int config_load(const char* path)
 		return -1;
 	}
 
-	memset(&config, 0, sizeof(config_t));
+	memset(&config, 0, sizeof(k2pconfig));
 
 	char line[PATH_MAX + 64];
 	while (fgets(line, sizeof(line), fp) != NULL) {
