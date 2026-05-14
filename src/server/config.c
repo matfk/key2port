@@ -34,6 +34,11 @@ int config_load(const char* path)
 			continue;
 		}
 
+		if (sscanf(line, "keys = %4095s", config.keys) == 1) {
+			trim_ends(config.keys);
+			continue;
+		}
+
 		if (sscanf(line, "replay_window = %d", &config.replay_window) == 1) {
 			continue;
 		}
@@ -42,11 +47,11 @@ int config_load(const char* path)
 			continue;
 		}
 
-		if (sscanf(line, "min_capture_port = %hd", &config.min_capture_port) == 1) {
+		if (sscanf(line, "min_capture_port = %hu", &config.min_capture_port) == 1) {
 			continue;
 		}
 
-		if (sscanf(line, "max_capture_port = %hd", &config.max_capture_port) == 1) {
+		if (sscanf(line, "max_capture_port = %hu", &config.max_capture_port) == 1) {
 			continue;
 		}
 	}

@@ -19,6 +19,7 @@
 #include <server/packet_parser.h>
 #include <server/capture.h>
 #include <server/config.h>
+#include <server/db.h>
 
 void print_usage()
 {
@@ -41,6 +42,10 @@ int main(int argc, char* argv[])
 	}
 
 	if (cap_ctx_init(&cap_ctx, dev, filter_exp) != 0) {
+		return 1;
+	}
+
+	if (db_init() != 0) {
 		return 1;
 	}
 
