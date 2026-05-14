@@ -21,6 +21,8 @@
 #include <server/config.h>
 #include <server/db.h>
 
+#define CONFIG_PATH "/etc/k2p/k2p.conf"
+
 void print_usage()
 {
 	printf("Usage: <interface>\n");
@@ -37,7 +39,7 @@ int main(int argc, char* argv[])
 	char* dev = argv[1];
 	cap_ctx cap_ctx;
 
-	if (config_load("conf/key2port.conf") != 0) {
+	if (config_load(CONFIG_PATH) != 0) {
 		return 1;
 	}
 
