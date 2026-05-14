@@ -5,7 +5,7 @@
 #include <string.h>
 #include <core/types.h>
 
-size_t spa_serialize_hdr(const struct spa_hdr* hdr, u8* out)
+size_t spa_serialize_hdr(const struct spa_hdr* hdr, u8 out[SPA_HDR_LEN])
 {
 	u8* p = out;
 	u32 magic = htonl(hdr->magic);
@@ -20,9 +20,8 @@ size_t spa_serialize_hdr(const struct spa_hdr* hdr, u8* out)
 	memcpy(p, &flags, 2);
 	p += 2;
 
-	u32 client_id = htonl(hdr->client_id);
-	memcpy(p, &client_id, 4);
-	p += 4;
+	memcpy(p, hdr->id, SPA_ID_LEN);
+	p += SPA_ID_LEN;
 
 	u32 timestamp = htonl(hdr->timestamp);
 	memcpy(p, &timestamp, 4);
@@ -47,7 +46,6 @@ int spa_parse_hdr(const u8* in, size_t len, struct spa_hdr* hdr)
 	hdr->magic = ntohl(hdr->magic);
 	hdr->version = ntohs(hdr->version);
 	hdr->flags = ntohs(hdr->flags);
-	hdr->client_id = ntohl(hdr->client_id);
 	hdr->timestamp = ntohl(hdr->timestamp);
 	hdr->payload_len = ntohl(hdr->payload_len);
 

@@ -3,7 +3,22 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <core/types.h>
+#include <sodium.h>
 #include <ctype.h>
+
+void strnhash(u8* hash, size_t n, const char* str)
+{
+	if (str == NULL)
+		return;
+
+	size_t inlen = strlen(str);
+	if (inlen == 0)
+		return;
+
+	u8 full_hash[crypto_generichash_BYTES];
+	crypto_generichash(full_hash, sizeof(full_hash), (u8*)str, inlen, NULL, 0);
+	memcpy(hash, full_hash, n);
+}
 
 void trim_ends(char* str)
 {

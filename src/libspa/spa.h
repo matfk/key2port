@@ -4,12 +4,12 @@
 #include <stdint.h>
 #include <sodium.h>
 #include <core/types.h>
-#include "spa.h"
 
 #define SPA_MAGIC 0x53504100
 #define SPA_VERSION 1
 #define SPA_NONCE_LEN 16
-#define SPA_HDR_LEN 36
+#define SPA_ID_LEN 8
+#define SPA_HDR_LEN 40
 #define SPA_SIG_LEN crypto_sign_BYTES
 #define SPA_PAYLOAD_MAX 512
 
@@ -17,7 +17,7 @@ struct spa_hdr {
 	u32 magic;
 	u16 version;
 	u16 flags;
-	u32 client_id;
+	u8 id[SPA_ID_LEN];
 	u32 timestamp;
 	u8 nonce[SPA_NONCE_LEN];
 	u32 payload_len;

@@ -77,21 +77,21 @@ int parse_pem_sk(const char* path, u8 sk[crypto_sign_SECRETKEYBYTES])
 	return 0;
 }
 
-struct spa_hdr create_packet_hdr(u32 client_id, u16 flags)
+struct spa_hdr create_packet_hdr(u8 id[SPA_ID_LEN], u16 flags)
 {
 	struct spa_hdr spa_hdr;
 	spa_hdr.magic = SPA_MAGIC;
 	spa_hdr.version = SPA_VERSION;
 	spa_hdr.flags = flags;
-	spa_hdr.client_id = client_id;
+	memcpy(spa_hdr.id, id, SPA_ID_LEN);
 	spa_hdr.timestamp = (u32)time(NULL);
 	randombytes_buf(spa_hdr.nonce, SPA_NONCE_LEN);
 	return spa_hdr;
 }
 
-int create_packet(u16 port, u32 ttl, u32 client_id, u16 flags, u8 sk[crypto_sign_SECRETKEYBYTES], u8** packet, size_t* packet_len)
+int create_packet(u16 port, u32 ttl, u8 id[SPA_ID_LEN], u16 flags, u8 sk[crypto_sign_SECRETKEYBYTES], u8** packet, size_t* packet_len)
 {
-	struct spa_hdr hdr = create_packet_hdr(client_id, flags);
+	struct spa_hdr hdr = create_packet_hdr(id, flags);
 	struct spa_payload payload = { ttl, port };
 	hdr.payload_len = sizeof(payload);
 
@@ -136,7 +136,6 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	u32 client_id = 2000;
 	u16 port = 4444;
 	u32 ttl = 120;
 	int opt;
@@ -164,6 +163,16 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	char target_name[255];
+	char target_host[255];
+	if (sscanf(target, "%254[^@]@%254s", target_name, target_host) != 2) {
+		print_usage();
+		return 1;
+	}
+
+	u8 id[SPA_ID_LEN];
+	strnhash(id, SPA_ID_LEN, target_name);
+
 	u8 sk[crypto_sign_SECRETKEYBYTES];
 	if (parse_pem_sk("key", sk) != 0)
 		return 1;
@@ -171,12 +180,16 @@ int main(int argc, char* argv[])
 	u8* packet = NULL;
 	size_t packet_len = 0;
 
-	if (create_packet(port, ttl, client_id, 0, sk, &packet, &packet_len) != 0)
+	if (create_packet(port, ttl, id, 0, sk, &packet, &packet_len) != 0)
 		return 1;
 
-	if (send_udp_packet(target, packet, packet_len) != 0)
+	if (send_udp_packet(target_host, packet, packet_len) != 0) {
+		fprintf(stderr, "failed to send udp packet\n");
+		free(packet);
 		return 1;
+	}
 
+	printf("packet sent\n");
 	free(packet);
 	return 0;
 }

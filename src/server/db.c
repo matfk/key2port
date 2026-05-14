@@ -26,16 +26,16 @@ static int db_truncate_keys()
 	return 0;
 }
 
-int db_select_key(const char* name, u8 pk[crypto_sign_PUBLICKEYBYTES])
+int db_select_key(const u8 id[SPA_ID_LEN], u8 pk[crypto_sign_PUBLICKEYBYTES])
 {
 	sqlite3_stmt* stmt;
-	const char* sql = "SELECT key FROM keys WHERE name = ?;";
+	const char* sql = "SELECT key FROM keys WHERE id = ?;";
 
 	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
 		return -1;
 	}
 
-	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+	sqlite3_bind_blob(stmt, 1, id, SPA_ID_LEN, SQLITE_STATIC);
 
 	int step_rc = sqlite3_step(stmt);
 	if (step_rc == SQLITE_ROW) {
@@ -79,17 +79,21 @@ int db_insert_key(const char* path, const char* filename)
 		return -1;
 	}
 
+	u8 id[SPA_ID_LEN];
+	strnhash(id, SPA_ID_LEN, filename);
+
 	fclose(keyfile);
 	sqlite3_stmt* stmt;
-	const char* sql = "INSERT INTO keys (name, key) VALUES (?, ?);";
+	const char* sql = "INSERT INTO keys (id, name, key) VALUES (?, ?, ?);";
 
 	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
 		fprintf(stderr, "prepare error: %s\n", sqlite3_errmsg(db));
 		return -1;
 	}
 
-	sqlite3_bind_text(stmt, 1, filename, -1, SQLITE_STATIC);
-	sqlite3_bind_blob(stmt, 2, pk, crypto_sign_PUBLICKEYBYTES, SQLITE_TRANSIENT);
+	sqlite3_bind_blob(stmt, 1, id, SPA_ID_LEN, SQLITE_TRANSIENT);
+	sqlite3_bind_text(stmt, 2, filename, -1, SQLITE_STATIC);
+	sqlite3_bind_blob(stmt, 3, pk, crypto_sign_PUBLICKEYBYTES, SQLITE_TRANSIENT);
 
 	int step_rc = sqlite3_step(stmt);
 	if (step_rc != SQLITE_DONE) {
@@ -207,7 +211,8 @@ int db_init()
 	}
 
 	const char* sql_keys = "CREATE TABLE IF NOT EXISTS keys ("
-			       "name TEXT PRIMARY KEY, "
+			       "id BLOB PRIMARY KEY, "
+			       "name TEXT, "
 			       "key BLOB);";
 
 	if (sqlite3_exec(db, sql_keys, 0, 0, &err) != SQLITE_OK) {
