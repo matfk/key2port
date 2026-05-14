@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 
 	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
 	char* dev = argv[1];
-	cap_ctx_t cap_ctx;
+	cap_ctx cap_ctx;
 
 	if (config_load("conf/key2port.conf") != 0) {
 		return 1;
@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	pcap_t* handle = cap_ctx.handle;
+	pcap_t* handle = cap_ctx_get_handle(&cap_ctx);
 	struct pcap_pkthdr* header;
 	const u8* packet;
 

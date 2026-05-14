@@ -13,7 +13,7 @@
 
 #define SNAP_LEN 1518
 
-void cap_ctx_free(cap_ctx_t* ctx)
+void cap_ctx_free(cap_ctx* ctx)
 {
 	if (ctx->handle != NULL) {
 		pcap_close(ctx->handle);
@@ -26,7 +26,12 @@ void cap_ctx_free(cap_ctx_t* ctx)
 	pcap_freecode(&ctx->fp);
 }
 
-int cap_ctx_init(cap_ctx_t* ctx, char* dev, const char* filter_exp)
+pcap_t* cap_ctx_get_handle(cap_ctx* ctx)
+{
+	return (pcap_t*)ctx->handle;
+}
+
+int cap_ctx_init(cap_ctx* ctx, char* dev, const char* filter_exp)
 {
 	bpf_u_int32 mask;
 	bpf_u_int32 net;
