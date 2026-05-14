@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <core/types.h>
+#include <server/db.h>
 
 size_t spa_serialize_hdr(const struct spa_hdr* hdr, u8* out)
 {

@@ -4,6 +4,7 @@
 #include <server/config.h>
 #include <core/string.h>
 #include <libspa/key.h>
+#include <libspa/spa.h>
 #include <dirent.h>
 #include <sqlite3.h>
 #include <sodium.h>
@@ -46,7 +47,7 @@ int db_insert_key(const char* path, const char* filename)
 
 	fclose(keyfile);
 	sqlite3_stmt* stmt;
-	const char* sql = "INSERT INTO keys (username, key) VALUES (?, ?);";
+	const char* sql = "INSERT INTO keys (name, key) VALUES (?, ?);";
 
 	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
 		fprintf(stderr, "prepare error: %s\n", sqlite3_errmsg(db));
@@ -98,6 +99,30 @@ int db_load_keys(const char* directory_path)
 	return 0;
 }
 
+int db_insert_seen(const char nonce[SPA_NONCE_LEN], u32 timestamp)
+{
+	sqlite3_stmt* stmt;
+	const char* sql = "INSERT INTO seen (nonce, timestamp) VALUES (?, ?);";
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		fprintf(stderr, "prepare error: %s\n", sqlite3_errmsg(db));
+		return -1;
+	}
+
+	sqlite3_bind_int64(stmt, 2, (u64)timestamp);
+	sqlite3_bind_blob(stmt, 1, nonce, SPA_NONCE_LEN, SQLITE_TRANSIENT);
+
+	int step_rc = sqlite3_step(stmt);
+	if (step_rc != SQLITE_DONE) {
+		fprintf(stderr, "exec error: %s\n", sqlite3_errmsg(db));
+	}
+
+	sqlite3_finalize(stmt);
+	return step_rc == SQLITE_DONE ? 0 : -1;
+
+	return 0;
+}
+
 int db_init()
 {
 	if (db) {
@@ -113,7 +138,7 @@ int db_init()
 
 	char* err = NULL;
 	const char* sql_seen = "CREATE TABLE IF NOT EXISTS seen ("
-			       "nonce TEXT PRIMARY KEY, "
+			       "nonce BLOB PRIMARY KEY, "
 			       "timestamp INTEGER);";
 
 	if (sqlite3_exec(db, sql_seen, 0, 0, &err) != SQLITE_OK) {
@@ -123,7 +148,7 @@ int db_init()
 	}
 
 	const char* sql_keys = "CREATE TABLE IF NOT EXISTS keys ("
-			       "username TEXT PRIMARY KEY, "
+			       "name TEXT PRIMARY KEY, "
 			       "key BLOB);";
 
 	if (sqlite3_exec(db, sql_keys, 0, 0, &err) != SQLITE_OK) {
@@ -133,7 +158,7 @@ int db_init()
 	}
 
 	if (db_load_keys(config->keys) != 0) {
-		fprintf(stderr, "no keys loaded\n");
+		fprintf(stderr, "failed to load keys\n");
 		sqlite3_free(err);
 		return -1;
 	}
