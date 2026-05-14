@@ -62,21 +62,21 @@ int main(void)
 		}
 
 		int len = header->caplen - parsed_len;
+		const u8* spa = packet + parsed_len;
+
+		if (spa_parse_hdr(spa, len, &hdr) != 0)
+			continue;
 
 		u8 pk[crypto_sign_PUBLICKEYBYTES];
 		if (db_select_key(hdr.id, pk) != 0) {
-			printf("found no key\n");
 			continue;
 		}
 
-		const u8* spa = packet + parsed_len;
 		if (spa_verify_packet(spa, len, pk, &hdr) != 0) {
-			printf("not verfied\n");
 			continue;
 		}
 
 		if (db_nonce_seen(hdr.nonce) != 0) {
-			printf("been seen\n");
 			continue;
 		}
 

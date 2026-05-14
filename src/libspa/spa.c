@@ -87,9 +87,6 @@ int spa_verify_packet(const u8* in, size_t len, const u8* pk, struct spa_hdr* hd
 	if (len < SPA_HDR_LEN + SPA_SIG_LEN)
 		return -1;
 
-	if (spa_parse_hdr(in, len, hdr) != 0)
-		return -1;
-
 	if (hdr->magic != SPA_MAGIC)
 		return -1;
 

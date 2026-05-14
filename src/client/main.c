@@ -38,7 +38,7 @@ void print_usage()
 
 void print_version()
 {
-	printf("Occultus v0.1\n");
+	printf("Key2Port v0.1\n");
 }
 
 u16 random_port()
@@ -189,7 +189,6 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	printf("packet sent\n");
 	free(packet);
 	return 0;
 }

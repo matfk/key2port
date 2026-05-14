@@ -6,6 +6,15 @@
 #include <sodium.h>
 #include <ctype.h>
 
+void printhex(u8* bytes, size_t n)
+{
+	for (int i = 0; i < n; i++) {
+		printf("%02x ", bytes[i]);
+	}
+
+	printf("\n");
+}
+
 void strnhash(u8* hash, size_t n, const char* str)
 {
 	if (str == NULL)
