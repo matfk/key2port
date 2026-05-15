@@ -89,7 +89,6 @@ int main(void)
 		u32 packet_ts = hdr.timestamp;
 
 		if (packet_ts < (now_ts - config->replay_window) || packet_ts > (now_ts + config->replay_window)) {
-			printf("not within replay window\n");
 			continue;
 		}
 
