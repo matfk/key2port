@@ -2,3 +2,5 @@
 
 mkdir -p /etc/k2p
 cp -r conf/* /etc/k2p
+
+mkdir -p /var/log/k2p
