@@ -201,10 +201,19 @@ int db_init()
 
 	char* err = NULL;
 	const char* sql_seen = "CREATE TABLE IF NOT EXISTS seen ("
-			       "nonce BLOB PRIMARY KEY, "
-			       "timestamp INTEGER);";
+			       "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+			       "nonce BLOB NOT NULL, "
+			       "timestamp INTEGER NOT NULL);";
 
 	if (sqlite3_exec(db, sql_seen, 0, 0, &err) != SQLITE_OK) {
+		fprintf(stderr, "sql error: %s\n", err);
+		sqlite3_free(err);
+		return -1;
+	}
+
+	const char* sql_seen_idx = "CREATE UNIQUE INDEX IF NOT EXISTS ix_seen_nonce ON seen(nonce);";
+
+	if (sqlite3_exec(db, sql_seen_idx, 0, 0, &err) != SQLITE_OK) {
 		fprintf(stderr, "sql error: %s\n", err);
 		sqlite3_free(err);
 		return -1;
