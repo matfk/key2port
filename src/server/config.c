@@ -39,6 +39,16 @@ int config_load(const char* path)
 			continue;
 		}
 
+		if (sscanf(line, "log_auth = %4095s", config.log_auth) == 1) {
+			trim_ends(config.log_auth);
+			continue;
+		}
+
+		if (sscanf(line, "log_error = %4095s", config.log_error) == 1) {
+			trim_ends(config.log_error);
+			continue;
+		}
+
 		if (sscanf(line, "replay_window = %d", &config.replay_window) == 1) {
 			continue;
 		}

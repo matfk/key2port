@@ -35,6 +35,10 @@ int main(void)
 
 	k2pconfig* config = config_get();
 
+	if (logs_open(config->log_auth, config->log_error) != 0) {
+		return 1;
+	}
+
 	if (cap_ctx_init(&cap_ctx, config->interface, filter_exp) != 0) {
 		return 1;
 	}
@@ -82,7 +86,7 @@ int main(void)
 		}
 
 		if (db_insert_seen(hdr.nonce, hdr.timestamp) != 0) {
-			fprintf(stderr, "failed to insert seen\n");
+			LOG_ERROR("faled to insert seen\n");
 			continue;
 		}
 
@@ -105,11 +109,11 @@ int main(void)
 			continue;
 		}
 
-		printf("source=%s ttl=%d port=%d\n", ip_addr, payload.ttl, payload.port);
-
 		if (nft_allow_port(payload.port, ip_addr, payload.ttl) != 0) {
 			continue;
 		}
+
+		LOG_AUTH("[%d] status=SUCCESS allow=%s:%d ttl=%d", now_ts, ip_addr, payload.port, payload.ttl);
 	}
 
 	cap_ctx_free(&cap_ctx);

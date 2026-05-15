@@ -9,6 +9,8 @@ typedef struct {
 	char interface[32];
 	char sqlite_db[PATH_MAX];
 	char keys[PATH_MAX];
+	char log_auth[PATH_MAX];
+	char log_error[PATH_MAX];
 	u32 replay_window;
 	u32 ttl;
 	u16 min_capture_port;

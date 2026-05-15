@@ -10,6 +10,7 @@ int logs_open(const char* auth_path, const char* error_path)
 	if (auth_path) {
 		log_auth = fopen(auth_path, "a");
 		if (log_auth == NULL) {
+			perror("fopen");
 			return -1;
 		}
 	}
@@ -17,6 +18,7 @@ int logs_open(const char* auth_path, const char* error_path)
 	if (error_path) {
 		log_error = fopen(error_path, "a");
 		if (log_error == NULL) {
+			perror("fopen");
 			return -1;
 		}
 	}
@@ -41,30 +43,35 @@ static void log_write(FILE* log_file, const char* fmt, va_list args)
 		return;
 	}
 
-	char buffer[4096];
-	int n = vsnprintf(buffer, sizeof(buffer), fmt, args);
-	if (n < 0) {
-		return;
-	}
+	va_list aq;
+	va_copy(aq, args);
 
-	fwrite(buffer, 1, sizeof(buffer), log_file);
+	vfprintf(log_file, fmt, aq);
+	fputc('\n', log_file);
+
 	fflush(log_file);
+
+	va_end(aq);
 }
 
 void log_auth_write(const char* fmt, ...)
 {
-    va_list ap;
+	va_list ap;
 	va_start(ap, fmt);
+
 	log_write(log_auth, fmt, ap);
-    log_write(stdout, fmt, ap);
+	log_write(stdout, fmt, ap);
+
 	va_end(ap);
 }
 
 void log_error_write(const char* fmt, ...)
 {
-    va_list ap;
+	va_list ap;
 	va_start(ap, fmt);
+
 	log_write(log_error, fmt, ap);
-    log_write(stderr, fmt, ap);
+	log_write(stderr, fmt, ap);
+
 	va_end(ap);
 }
