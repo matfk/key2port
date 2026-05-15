@@ -20,6 +20,7 @@
 #include <server/capture.h>
 #include <server/config.h>
 #include <server/db.h>
+#include <core/log.h>
 
 #define CONFIG_PATH "/etc/k2p/k2p.conf"
 
