@@ -100,7 +100,7 @@ int spa_verify_packet(const u8* in, size_t len, const u8* pk, struct spa_hdr* hd
 	if (len < total_len)
 		return -1;
 
-	u8* sig = in + SPA_HDR_LEN + hdr->payload_len;
+	const u8* sig = in + SPA_HDR_LEN + hdr->payload_len;
 	if (crypto_sign_verify_detached(sig, in, SPA_HDR_LEN + hdr->payload_len, pk) != 0)
 		return -1;
 

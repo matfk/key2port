@@ -1,4 +1,3 @@
-#define _DEFAULT_SOURCE
 #include <sys/types.h>
 #include <pcap.h>
 #include <stdio.h>
@@ -40,7 +39,7 @@ int ip_parse_hdr(const u8* packet, size_t len, struct ip_hdr* hdr, int* out_ip_l
 	if (IP_V(hdr) != 4)
 		return 1;
 
-	int size_ip = IP_HL(hdr) * 4;
+	size_t size_ip = IP_HL(hdr) * 4;
 	if (size_ip < IP_LEN)
 		return 1;
 
@@ -72,7 +71,7 @@ int udp_parse_hdr(const u8* packet, size_t len, struct udp_hdr* hdr)
 
 int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* eth, struct ip_hdr* ip, struct udp_hdr* udp)
 {
-	u8* p = packet;
+	u8* p = (u8*)packet;
 	int ip_len;
 
 	if (ethernet_parse_hdr(p, packet_len, eth) != 0)

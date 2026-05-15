@@ -7,9 +7,9 @@
 
 static k2pconfig config;
 
-const k2pconfig* config_get()
+k2pconfig* config_get()
 {
-	return (const k2pconfig*)&config;
+	return &config;
 }
 
 int config_load(const char* path)

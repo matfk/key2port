@@ -17,7 +17,7 @@ typedef struct {
 	u16 max_capture_port;
 } k2pconfig;
 
-const k2pconfig* config_get();
+k2pconfig* config_get();
 int config_load(const char* path);
 
 #endif
