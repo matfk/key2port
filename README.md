@@ -1,5 +1,7 @@
 # Key2port
 
+**Important**: Key2port is not fully ready yet for use.
+
 Key2port is a Single Packet Authorization (SPA) tool designed to secure services by keeping them invisible to the public internet. Unlike traditional firewalls that leave ports open, Key2port keeps them closed and only "unlocks" access after receiving a single cryptographically signed UDP packet.
 
 ## Prerequisites
@@ -63,6 +65,6 @@ After running the client, you have the `ttl` window to connect (e.g., `ssh user@
 
 ## Configuration
 
-Configuration files are located in `/etc/k2p/` after installation. You can manage authorized users and their public keys in the `/etc/k2p/keys`.
+Configuration files are located in `/etc/k2p/` after installation. You can manage authorized users and their public keys in the `/etc/k2p/keys` directory.
 
 To add a new user, copy their public key into it's own file under `/etc/k2p/keys` and rename the file to the desired username.  
