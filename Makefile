@@ -39,8 +39,8 @@ SERVER_OBJS := $(patsubst $(SERVER_DIR)/%.c,$(SRVOBJ)/%.o,$(SERVER_SRCS))
 CORE_LIB := $(OBJDIR)/libcore.a
 SPA_LIB  := $(OBJDIR)/libspa.a
 
-CLIENT_BIN := client
-SERVER_BIN := server
+CLIENT_BIN := k2p-client
+SERVER_BIN := k2p-server
 
 .PHONY: all clean core spa client server
 
