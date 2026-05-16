@@ -1,6 +1,6 @@
 # Key2port
 
-**Important**: Key2port is not fully ready yet for use.
+**Important**: Key2port is not fully ready yet for use!
 
 Key2port is a Single Packet Authorization (SPA) tool designed to secure services by keeping them invisible to the public internet. Unlike traditional firewalls that leave ports open, Key2port keeps them closed and only "unlocks" access after receiving a single cryptographically signed UDP packet.
 
