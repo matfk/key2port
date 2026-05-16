@@ -1,6 +1,6 @@
 # Key2port
 
-**Important**: Key2port is not fully ready yet for use!
+**Important**: Key2port is not yet ready for use!
 
 Key2port is a Single Packet Authorization (SPA) tool designed to secure services by keeping them invisible to the public internet. Unlike traditional firewalls that leave ports open, Key2port keeps them closed and only "unlocks" access after receiving a single cryptographically signed UDP packet.
 
@@ -32,18 +32,13 @@ sudo apt install build-essential libsodium-dev libpcap-dev libnftables-dev libsq
    ```bash
    sudo scripts/install.sh
    ```
-
-## Usage
-
-### 1. Server Setup
-Run the server on the machine you want to protect. It will listen for authorization packets with a specific magic value and temporarily modify `nftables` rules.
-
+### Server Usage
+Run server with sudo or add it to your init system.
 ```bash
 sudo ./k2p-server
 ```
-*Note: The server mut be ran as root to capture packets and modify firewall rules.*
 
-### 2. Client Authorization
+### Client Usage
 To unlock a port (e.g., port 22 for SSH) from a remote machine:
 
 ```bash

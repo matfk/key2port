@@ -28,7 +28,7 @@ struct option long_options[] = {
 
 void print_usage()
 {
-	printf("Usage: <target> [OPTIONS]\n");
+	printf("Usage: user@target [OPTIONS]\n");
 	printf("Options:\n");
 	printf("  -h, --help         Show this help message and exit\n");
 	printf("  -v, --version      Show version info and exit\n");
