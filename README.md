@@ -28,15 +28,9 @@ sudo apt install build-essential libsodium-dev libpcap-dev libnftables-dev libsq
    cd key2port
    ```
 
-2. **Build the project**:
+2. **Install**:
    ```bash
-   make
-   ```
-   This will generate two binaries: `k2p-server` and `k2p-client`.
-
-3. **Install configuration**:
-   ```bash
-   sudo ./install.sh
+   sudo scripts/install.sh
    ```
 
 ## Usage
