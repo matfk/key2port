@@ -84,6 +84,9 @@ int parse_hdrs(const u8* packet, size_t packet_len, struct ethernet_hdr* eth, st
 		return -1;
 
 	p += ip_len;
+	if (packet_len < ip_len)
+		return -1;
+
 	packet_len -= ip_len;
 
 	if (udp_parse_hdr(p, packet_len, udp) != 0)
