@@ -81,19 +81,19 @@ int main(void)
 			continue;
 		}
 
+		u32 now_ts = (u32)time(NULL);
+		u32 packet_ts = hdr.timestamp;
+
+		if (packet_ts < (now_ts - config->replay_window) || packet_ts > (now_ts + config->replay_window)) {
+			continue;
+		}
+
 		if (db_nonce_seen(hdr.nonce) != 0) {
 			continue;
 		}
 
 		if (db_insert_seen(hdr.nonce, hdr.timestamp) != 0) {
 			LOG_ERROR("faled to insert seen\n");
-			continue;
-		}
-
-		u32 now_ts = (u32)time(NULL);
-		u32 packet_ts = hdr.timestamp;
-
-		if (packet_ts < (now_ts - config->replay_window) || packet_ts > (now_ts + config->replay_window)) {
 			continue;
 		}
 
