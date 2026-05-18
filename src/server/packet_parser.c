@@ -21,7 +21,7 @@ int ethernet_parse_hdr(const u8* packet, size_t len, struct ethernet_hdr* hdr)
 	if (len < ETHER_LEN)
 		return 1;
 
-	memcpy(hdr, packet, sizeof(*hdr));
+	memcpy(hdr, packet, ETHER_LEN);
 	hdr->ether_type = ntohs(hdr->ether_type);
 
 	if (hdr->ether_type != 0x0800)
