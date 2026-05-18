@@ -15,8 +15,8 @@
 #include <sodium.h>
 #include <core/string.h>
 #include <core/types.h>
-#include <libspa/spa.h>
-#include <libspa/key.h>
+#include <core/spa.h>
+#include <core/key.h>
 
 #define ETHER_LEN 14
 #define ETHER_ADDR_LEN 6

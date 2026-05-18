@@ -12,8 +12,8 @@
 #include <sodium.h>
 #include <core/string.h>
 #include <core/types.h>
-#include <libspa/spa.h>
-#include <libspa/key.h>
+#include <core/spa.h>
+#include <core/key.h>
 #include <server/packet_parser.h>
 
 int ethernet_parse_hdr(const u8* packet, size_t len, struct ethernet_hdr* hdr)

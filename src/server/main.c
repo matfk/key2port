@@ -12,8 +12,8 @@
 #include <sodium.h>
 #include <core/string.h>
 #include <core/types.h>
-#include <libspa/spa.h>
-#include <libspa/key.h>
+#include <core/spa.h>
+#include <core/key.h>
 #include <pthread.h>
 #include <server/nft.h>
 #include <server/packet_parser.h>

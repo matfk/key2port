@@ -8,8 +8,8 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <core/string.h>
-#include <libspa/key.h>
-#include <libspa/spa.h>
+#include <core/key.h>
+#include <core/spa.h>
 #include <sodium.h>
 #include <getopt.h>
 

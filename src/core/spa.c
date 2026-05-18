@@ -1,9 +1,9 @@
-#include <libspa/spa.h>
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <core/types.h>
+#include <core/spa.h>
 
 size_t spa_serialize_hdr(const struct spa_hdr* hdr, u8 out[SPA_HDR_LEN])
 {

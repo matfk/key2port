@@ -3,8 +3,8 @@
 #include <server/db.h>
 #include <server/config.h>
 #include <core/string.h>
-#include <libspa/key.h>
-#include <libspa/spa.h>
+#include <core/key.h>
+#include <core/spa.h>
 #include <dirent.h>
 #include <sqlite3.h>
 #include <sodium.h>

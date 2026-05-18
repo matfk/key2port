@@ -2,7 +2,7 @@
 #define DB_H
 
 #include <core/types.h>
-#include <libspa/spa.h>
+#include <core/spa.h>
 
 int db_init();
 int db_select_key(const u8 id[SPA_ID_LEN], u8 pk[crypto_sign_PUBLICKEYBYTES]);
