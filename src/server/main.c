@@ -23,10 +23,11 @@
 #include <core/log.h>
 
 #define CONFIG_PATH "/etc/k2p/k2p.conf"
+#define FILTER_EXP = "udp and udp[8:4] = 0x53504100"
 
 int main(void)
 {
-	char filter_exp[] = "udp and udp[8:4] = 0x53504100";
+	char filter_exp[] = FILTER_EXP;
 	cap_ctx cap_ctx;
 
 	if (config_load(CONFIG_PATH) != 0) {
