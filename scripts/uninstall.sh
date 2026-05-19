@@ -8,9 +8,9 @@ fi
 
 pkill k2p-server || true
 
-INSTALL_DIR="/usr/local/bin"
-CONF_DIR="/etc/k2p"
-LOG_DIR="/var/log/k2p"
+INSTALL_DIR="/usr/bin"
+CONF_DIR="/etc/key2port"
+LOG_DIR="/var/log/key2port"
 
 echo "Cleaning up config"
 rm -rf "$CONF_DIR"
@@ -19,7 +19,7 @@ rm "$INSTALL_DIR/k2p-server"
 rm "$INSTALL_DIR/k2p-client"
 
 echo "Cleaning up nftables"
-nft delete table inet k2p_filter 2>/dev/null || true
+nft delete table inet key2port_filter 2>/dev/null || true
 nft delete table inet key2port 2>/dev/null || true
 
 if [ -f /etc/nftables.d/key2port.nft ]; then

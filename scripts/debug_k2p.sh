@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # check the nftables
-if nft list table inet k2p_filter > /dev/null 2>&1; then
-    echo "[OK] nftables 'k2p_filter' table exists."
-    HITS=$(nft list table inet k2p_filter | grep "0x99" | awk '{print $7}')
+if nft list table inet key2port_filter > /dev/null 2>&1; then
+    echo "[OK] nftables 'key2port_filter' table exists."
+    HITS=$(nft list table inet key2port_filter | grep "0x99" | awk '{print $7}')
     echo "     -> Total authorized packets passed: $HITS"
 else
-    echo "Error: 'k2p_filter' table missing! run scripts/install.sh."
+    echo "Error: 'key2port_filter' table missing! run scripts/install.sh."
 fi
 
 # check for active ones

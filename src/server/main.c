@@ -22,8 +22,8 @@
 #include <server/db.h>
 #include <core/log.h>
 
-#define CONFIG_PATH "/etc/k2p/k2p.conf"
-#define FILTER_EXP = "udp and udp[8:4] = 0x53504100"
+#define CONFIG_PATH "/etc/key2port/key2port.conf"
+#define FILTER_EXP "udp and udp[8:4] = 0x53504100"
 
 int main(void)
 {

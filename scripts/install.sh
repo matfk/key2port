@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e 
 
-INSTALL_DIR="/usr/local/bin"
-CONF_DIR="/etc/k2p"
+INSTALL_DIR="/usr/bin"
+CONF_DIR="/etc/key2port"
 KEYS_DIR="$CONF_DIR/keys"
-LOG_DIR="/var/log/k2p"
+LOG_DIR="/var/log/key2port"
 
 if [[ $EUID -ne 0 ]]; then
     echo "This script must be run as root"
@@ -61,19 +61,19 @@ fi
 
 mkdir -p "$LOG_DIR"
 
-if [ -f "$CONF_DIR/k2p.conf" ]; then
-    sed -i "s/^interface =.*/interface = $FINAL_IFACE/" "$CONF_DIR/k2p.conf"
+if [ -f "$CONF_DIR/key2port.conf" ]; then
+    sed -i "s/^interface =.*/interface = $FINAL_IFACE/" "$CONF_DIR/key2port.conf"
 fi
 
-nft add table inet k2p_filter
-nft add chain inet k2p_filter input "{ type filter hook input priority -5; policy accept; }"
-nft add rule inet k2p_filter input meta mark 0x99 counter accept
+nft add table inet key2port_filter
+nft add chain inet key2port_filter input "{ type filter hook input priority -5; policy accept; }"
+nft add rule inet key2port_filter input meta mark 0x99 counter accept
 
 if [ -d /etc/nftables.d ]; then
-    nft list table inet k2p_filter > /etc/nftables.d/key2port.nft
+    nft list table inet key2port_filter > /etc/nftables.d/key2port.nft
     echo "Ok: Saved persistant rules to /etc/nfttables.d/key2port.nft"
 else
-    echo "Warning: /etc/nftables.d not found. Add k2p_filter table to you startup script manually for persistance"
+    echo "Warning: /etc/nftables.d not found. Add key2port_filter table to you startup script manually for persistance"
 fi
 
 echo "Installation complete. What next?"

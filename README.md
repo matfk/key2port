@@ -54,6 +54,6 @@ After running the client, you have the `ttl` window to connect (e.g., `ssh user@
 
 ## Configuration
 
-Configuration files are located in `/etc/k2p/` after installation. You can manage authorized users and their public keys in the `/etc/k2p/keys` directory.
+Configuration files are located in `/etc/key2port/` after installation. You can manage authorized users and their public keys in the `/etc/key2port/keys` directory.
 
-To add a new user, copy their public key into it's own file under `/etc/k2p/keys` and rename the file to the desired username.  
+To add a new user, copy their public key into it's own file under `/etc/ket2port/keys` and rename the file to the desired username.  
